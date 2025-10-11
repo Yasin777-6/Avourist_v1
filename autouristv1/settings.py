@@ -28,7 +28,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-b55)uplorifkl5+sa=0p_s@m9hi_$yu9rna8n(ef*prum9bu4&'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Read from environment; default False for safety in production
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Hosts and security
 # Allow overriding via env var ALLOWED_HOSTS (comma-separated) or RAILWAY_PUBLIC_DOMAIN
@@ -52,6 +53,9 @@ else:
         'https://*.up.railway.app',
     ]
 
+
+# Honor X-Forwarded-Proto for secure requests behind Railway proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 

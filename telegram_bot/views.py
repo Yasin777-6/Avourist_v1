@@ -2,7 +2,7 @@ import json
 import logging
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods
 from django.utils.decorators import method_decorator
 from django.views import View
 from ai_engine.services import AIConversationService
@@ -85,22 +85,38 @@ class TelegramWebhookView(View):
 
 
 @csrf_exempt
-@require_POST
+@require_http_methods(["GET", "POST"])
 def set_webhook(request):
-    """Set up Telegram webhook"""
+    """Set up Telegram webhook. Accepts GET/POST for convenience."""
     import requests
     from django.conf import settings
-    
-    webhook_url = f"{settings.TELEGRAM_WEBHOOK_URL}/telegram/webhook/"
-    telegram_url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/setWebhook"
-    
-    payload = {'url': webhook_url}
-    response = requests.post(telegram_url, json=payload)
-    
-    if response.status_code == 200:
-        return JsonResponse({'status': 'success', 'webhook_set': webhook_url})
+
+    # Determine full webhook URL robustly
+    env_url = getattr(settings, 'TELEGRAM_WEBHOOK_URL', None)
+    if env_url:
+        u = env_url.strip()
+        # If env already points to webhook path, normalize and use it as-is
+        if '/telegram/webhook' in u:
+            webhook_url = u.rstrip('/') + '/'
+        else:
+            webhook_url = u.rstrip('/') + '/telegram/webhook/'
     else:
-        return JsonResponse({'status': 'error', 'response': response.text})
+        base = f"{request.scheme}://{request.get_host()}".rstrip('/')
+        webhook_url = f"{base}/telegram/webhook/"
+
+    telegram_url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/setWebhook"
+
+    try:
+        payload = {'url': webhook_url}
+        response = requests.post(telegram_url, json=payload, timeout=10)
+        ok = response.status_code == 200 and response.json().get('ok')
+        return JsonResponse({
+            'status': 'success' if ok else 'error',
+            'webhook_set': webhook_url,
+            'telegram_response': response.json() if response.headers.get('content-type','').startswith('application/json') else response.text,
+        }, status=200 if ok else 400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
 def webhook_info(request):
