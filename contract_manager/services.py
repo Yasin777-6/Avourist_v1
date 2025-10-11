@@ -344,16 +344,26 @@ class EmailVerificationService:
         return verification
     
     def _send_code_via_email(self, email: str, code: str, contract_number: str):
-        """Send verification code via email"""
-        from django.core.mail import send_mail
-        from django.conf import settings
+        """Send verification code via email (async via Celery)"""
+        from .tasks import send_verification_email_task
         
         if not email:
             logger.warning(f"No email address for contract {contract_number}")
             return
         
-        subject = f"Код подтверждения договора {contract_number}"
-        message = f"""
+        try:
+            # Send email asynchronously via Celery
+            send_verification_email_task.delay(email, code, contract_number)
+            logger.info(f"Email task queued for {email}")
+        except Exception as e:
+            logger.error(f"Failed to queue email task for {email}: {e}")
+            # Fallback to synchronous sending if Celery is not available
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                subject = f"Код подтверждения договора {contract_number}"
+                message = f"""
 Здравствуйте!
 
 Ваш код подтверждения договора: {code}
@@ -365,19 +375,18 @@ class EmailVerificationService:
 ---
 С уважением,
 Команда АвтоЮрист
-        """.strip()
-        
-        try:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
-            )
-            logger.info(f"Verification code sent to {email}")
-        except Exception as e:
-            logger.error(f"Failed to send email to {email}: {e}")
+                """.strip()
+                
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=True,
+                )
+                logger.info(f"Email sent synchronously (fallback) to {email}")
+            except Exception as fallback_error:
+                logger.error(f"Fallback email sending also failed: {fallback_error}")
     
     def verify_code(self, contract: Contract, entered_code: str) -> bool:
         """Verify entered SMS code"""
