@@ -197,19 +197,30 @@ class DOCXFiller:
         # Case article - replace in default descriptions and standalone
         case_article = data.get('case_article', '')
         if case_article:
+            logger.info(f"Replacing case article with: {case_article}")
+            
+            # Normalize the case_article to remove duplicate "РФ"
+            normalized_article = case_article.replace("КоАП РФ РФ", "КоАП РФ").strip()
+            logger.info(f"Normalized article: {normalized_article}")
+            
             # Replace standalone article references
-            replacements["ч.1 ст.12.8 КоАП РФ"] = case_article
-            replacements["ч.1 ст.12.8 КоАП"] = case_article
+            replacements["ч.1 ст.12.8 КоАП РФ"] = normalized_article
+            replacements["ч.1 ст.12.8 КоАП"] = normalized_article
+            replacements["ч.1 ст.12.8 КоАП РФ РФ"] = normalized_article
             
             # Replace article in default descriptions
             default_descs_with_article = [
                 "подготовитьходатайство на получение материалов дела, ходатайство о привлечения к делу защитника, подготовка жалобы на постановление по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ",
                 "получение материалов дела, ходатайство о привлечении к делу защитника, ходатайство о переводе дела по месту жительства, подготовка письменного объяснения лица по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ",
-                "получение материалов дела, ходатайство о привлечении к делу защитника, ходатайство о переводе дела по месту жительства, подготовка письменного объяснения лица по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ."
+                "получение материалов дела, ходатайство о привлечении к делу защитника, ходатайство о переводе дела по месту жительства, подготовка письменного объяснения лица по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ.",
+                "правонарушении по ч.1 ст.12.8 КоАП РФ РФ",
+                "правонарушении по ч.1 ст.12.8 КоАП РФ"
             ]
             for default_desc in default_descs_with_article:
-                # Replace with actual article
-                new_desc = default_desc.replace("ч.1 ст.12.8 КоАП РФ", case_article)
+                # Replace with actual article - try both variations
+                new_desc = default_desc.replace("ч.1 ст.12.8 КоАП РФ РФ", normalized_article).replace("ч.1 ст.12.8 КоАП РФ", normalized_article)
+                if new_desc != default_desc:
+                    logger.info(f"Article replacement: '{default_desc[:80]}...' → '{new_desc[:80]}...'")
                 replacements[default_desc] = new_desc
         
         # Case description - from user's sample
