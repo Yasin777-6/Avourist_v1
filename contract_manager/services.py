@@ -348,11 +348,13 @@ class EmailVerificationService:
     """Service for handling email verification codes"""
     
     def generate_verification_code(self, contract: Contract) -> SMSVerification:
-        """Generate and send email verification code"""
+        """Generate verification code (no email, code shown in Telegram only)"""
         
         # Generate 6-digit code
         import random
         code = f"{random.randint(100000, 999999)}"
+        
+        logger.info(f"Generated verification code {code} for contract {contract.contract_number}")
         
         # Create verification record
         verification = SMSVerification.objects.create(
@@ -361,75 +363,7 @@ class EmailVerificationService:
             verification_code=code
         )
         
-        # Send code via email
-        self._send_code_via_email(contract.lead.email, code, contract.contract_number)
-        
         return verification
-    
-    def _send_code_via_email(self, email: str, code: str, contract_number: str):
-        """Send verification code via email (synchronous with fallback)"""
-        from django.core.mail import send_mail
-        from django.conf import settings
-        
-        if not email:
-            logger.warning(f"No email address for contract {contract_number}")
-            return
-        
-        subject = f"Код подтверждения договора {contract_number}"
-        message = f"""
-Здравствуйте!
-
-Ваш код подтверждения договора: {code}
-
-Код действителен 10 минут.
-
-Введите этот код в Telegram-боте для подписания договора.
-
----
-С уважением,
-Команда АвтоЮрист
-        """.strip()
-        
-        try:
-            logger.info(f"=== ATTEMPTING EMAIL SEND ===")
-            logger.info(f"From: {settings.DEFAULT_FROM_EMAIL}")
-            logger.info(f"To: {email}")
-            logger.info(f"Subject: {subject}")
-            logger.info(f"Code: {code}")
-            logger.info(f"Backend: {settings.EMAIL_BACKEND}")
-            logger.info(f"Host: {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
-            logger.info(f"TLS: {settings.EMAIL_USE_TLS}")
-            logger.info(f"User: {settings.EMAIL_HOST_USER}")
-            logger.info(f"Password set: {'Yes' if settings.EMAIL_HOST_PASSWORD else 'No'}")
-            
-            # Set timeout to avoid hanging
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
-            )
-            logger.info(f"✅ Email sent successfully to {email}")
-        except Exception as e:
-            logger.error(f"❌ Failed to send email to {email}: {e}")
-            logger.error(f"Error type: {type(e).__name__}")
-            logger.exception("Full email error traceback:")
-            
-            # CRITICAL: Log code to console for manual delivery
-            logger.critical(f"""\n
-{'='*60}
-🚨 EMAIL FAILED - MANUAL CODE DELIVERY REQUIRED 🚨
-{'='*60}
-Contract: {contract_number}
-Email: {email}
-VERIFICATION CODE: {code}
-{'='*60}
-Please manually send this code to the client.
-{'='*60}\n""")
-            
-            # Don't raise - allow contract generation to continue
-            logger.warning(f"Contract {contract_number} created but email failed. Code logged for manual delivery.")
     
     def verify_code(self, contract: Contract, entered_code: str) -> bool:
         """Verify entered SMS code"""

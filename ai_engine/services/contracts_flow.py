@@ -94,7 +94,7 @@ class ContractFlow:
             contract.save()
             logger.info(f"Contract status updated to SMS_SENT")
             
-            # Get the verification code to send via Telegram as fallback
+            # Get the verification code
             code = verification.verification_code
             logger.info(f"Verification code generated: {code}")
 
@@ -105,8 +105,7 @@ class ContractFlow:
 
 <b>🔐 Ваш код подтверждения: {code}</b>
 
-Введите этот код для подписания договора.
-(Код также отправлен на email {contract.lead.email})"""
+Введите код для подписания договора."""
             
             logger.info(f"=== CONTRACT GENERATION COMPLETED SUCCESSFULLY ===")
             return response_msg
