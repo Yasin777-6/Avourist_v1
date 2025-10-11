@@ -51,6 +51,15 @@ class DOCXFiller:
         # Define replacements based on your field list
         replacements = self._build_replacements(data)
         
+        # Log what we're replacing
+        logger.info(f"=== DOCX REPLACEMENTS ===")
+        logger.info(f"Passport series: {data.get('client_passport_series', 'MISSING')}")
+        logger.info(f"Passport number: {data.get('client_passport_number', 'MISSING')}")
+        logger.info(f"Case article: {data.get('case_article', 'MISSING')}")
+        logger.info(f"Total replacements: {len(replacements)}")
+        for key, value in list(replacements.items())[:10]:  # Log first 10
+            logger.info(f"  '{key}' → '{value}'")
+        
         # Replace text in paragraphs
         for paragraph in doc.paragraphs:
             self._replace_in_paragraph(paragraph, replacements)
@@ -143,8 +152,22 @@ class DOCXFiller:
         passport_series = data.get('client_passport_series', '')
         passport_number = data.get('client_passport_number', '')
         if passport_series and passport_number:
-            replacements["Паспорт Серия_____ Номер___________"] = f"Паспорт Серия {passport_series} Номер {passport_number}"
-            replacements["Серия_____ Номер___________"] = f"Серия {passport_series} Номер {passport_number}"
+            # Multiple possible variations of passport placeholder
+            passport_variations = [
+                "Паспорт Серия_____ Номер___________",
+                "Паспорт Серия_____  Номер___________",  # Note: 2 spaces
+                "Паспорт Серия_____ Номер__________",   # 10 underscores
+                "Серия_____ Номер___________",
+                "Серия_____  Номер___________",          # Note: 2 spaces
+            ]
+            passport_text = f"Паспорт Серия {passport_series} Номер {passport_number}"
+            series_text = f"Серия {passport_series} Номер {passport_number}"
+            
+            for variation in passport_variations:
+                if "Паспорт" in variation:
+                    replacements[variation] = passport_text
+                else:
+                    replacements[variation] = series_text
         
         address = data.get('client_address', '')
         if address:
@@ -158,14 +181,26 @@ class DOCXFiller:
         if email:
             replacements["Е-mail______________________________"] = f"Е-mail: {email}"
         
+        # Case article - replace in default descriptions
+        case_article = data.get('case_article', '')
+        if case_article:
+            # Replace article in default descriptions
+            default_descs_with_article = [
+                "подготовитьходатайство на получение материалов дела, ходатайство о привлечения к делу защитника, подготовка жалобы на постановление по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ",
+                "получение материалов дела, ходатайство о привлечении к делу защитника, ходатайство о переводе дела по месту жительства, подготовка письменного объяснения лица по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ"
+            ]
+            for default_desc in default_descs_with_article:
+                # Replace with actual article
+                new_desc = default_desc.replace("ч.1 ст.12.8 КоАП РФ", case_article)
+                replacements[default_desc] = new_desc
+        
         # Case description - from user's sample
         case_desc = data.get('case_description', '')
         if case_desc:
             # Multiple possible default descriptions
             default_descs = [
                 "провести правовой анализ документов (материалов дела),подготовка ответа на требование каршеринга, подготовка претензии, подготовка Отзыва на исковое заявления, ответ на претензию,заявление в соответствующие органы",
-                "подготовка ответа на требование каршеринга, подготовка претензии, подготовка Отзыва на исковое заявления, ответ на претензию,заявление в соответствующие органы",
-                "подготовитьходатайство на получение материалов дела, ходатайство о привлечения к делу защитника, подготовка жалобы на постановление по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ"
+                "подготовка ответа на требование каршеринга, подготовка претензии, подготовка Отзыва на исковое заявления, ответ на претензию,заявление в соответствующие органы"
             ]
             for default_desc in default_descs:
                 replacements[default_desc] = case_desc
