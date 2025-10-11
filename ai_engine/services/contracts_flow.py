@@ -33,7 +33,13 @@ class ContractFlow:
                     return (
                         "У меня пока нет готового договора для отправки. Давайте оформим заново — пришлите ваши паспортные данные, адрес и телефон."
                     )
-                parsed_data = self._parse_contract_data(lead, data_str)
+                
+                # Try pipe-delimited format first (from AI command)
+                if "|" in data_str:
+                    parsed_data = self._parse_pipe_format(lead, data_str)
+                else:
+                    # Fallback to natural language parsing
+                    parsed_data = self._parse_contract_data(lead, data_str)
             else:
                 parsed_data = client_data if isinstance(client_data, dict) else None
             if not parsed_data:
@@ -76,6 +82,68 @@ class ContractFlow:
         except Exception:
             logger.exception("Contract generation error")
             return "Ошибка при создании договора. Наш менеджер скоро свяжется с вами."
+
+    def _parse_pipe_format(self, lead, data_str: str) -> Dict:
+        """
+        Parse pipe-delimited format from AI command:
+        ФИО|ДД.ММ.ГГГГ|серия ХХХХ номер ХХХХХХ|адрес|телефон|email|статья|инстанция|WITH_POA/WITHOUT_POA
+        """
+        try:
+            parts = [p.strip() for p in data_str.split("|")]
+            if len(parts) < 9:
+                logger.warning(f"Pipe format incomplete: {len(parts)} parts, expected 9")
+                return None
+            
+            # Parse passport (format: "серия 1234 номер 123456")
+            passport_str = parts[2]
+            series_match = re.search(r"серия\s*(\d{4})", passport_str, re.IGNORECASE)
+            number_match = re.search(r"номер\s*(\d{6})", passport_str, re.IGNORECASE)
+            
+            passport_series = series_match.group(1) if series_match else ""
+            passport_number = number_match.group(1) if number_match else ""
+            
+            contract_data = {
+                "client_full_name": parts[0],
+                "birth_date": parts[1],
+                "client_passport_series": passport_series,
+                "client_passport_number": passport_number,
+                "client_passport_issued_by": "",
+                "client_passport_issued_date": "",
+                "birth_place": "",
+                "client_address": parts[3],
+                "client_phone": parts[4],
+                "email": parts[5],
+                "case_article": parts[6],
+                "case_description": lead.case_description or "",
+                "total_amount": None,
+                "prepayment": None,
+                "prepayment_percent": None,
+                "success_fee": None,
+                "success_fee_percent": None,
+                "docs_prep_fee": 5000,
+                "payment_terms": "",
+                "contract_date": datetime.now().strftime("%d.%m.%Y"),
+                "instance": parts[7],
+                "representation_type": parts[8].upper(),
+                "director_name": "Шельмина Евгения Васильевича",
+            }
+            
+            # Save email to lead if not set
+            if contract_data["email"] and not lead.email:
+                lead.email = contract_data["email"]
+                lead.save()
+            
+            # Save phone to lead if not set
+            if contract_data["client_phone"] and not lead.phone_number:
+                lead.phone_number = contract_data["client_phone"]
+                lead.save()
+            
+            logger.info(f"Parsed pipe format successfully: {contract_data}")
+            return contract_data
+            
+        except Exception as e:
+            logger.error(f"Failed to parse pipe format: {e}")
+            return None
 
     def _send_contract_to_telegram(self, telegram_id: int, contract):
         try:
@@ -147,35 +215,39 @@ class ContractFlow:
             lead.phone_number = contract_data["client_phone"]
             lead.save()
 
-        # Parse passport series and number (handles both orders)
-        # Try "серия XXXX номер XXXXXX"
+        # Parse passport series and number (handles multiple formats)
+        # Try explicit "серия XXXX номер XXXXXX" format
         pass_match = re.search(
-            r"(?:серия\s*)(\d{4,6})[\s-]*(?:номер\s*)?(\d{4,6})", data_str, re.IGNORECASE
+            r"(?:серия|series)[:\s]*(\d{4})[\s-]*(?:номер|number)[:\s]*(\d{6})", data_str, re.IGNORECASE
         )
         if pass_match:
-            # Determine which is series (4 digits) and which is number (6 digits)
-            first = pass_match.group(1)
-            second = pass_match.group(2)
-            if len(first) == 4 and len(second) == 6:
-                contract_data["client_passport_series"] = first
-                contract_data["client_passport_number"] = second
-            elif len(first) == 6 and len(second) == 4:
-                contract_data["client_passport_series"] = second
-                contract_data["client_passport_number"] = first
+            contract_data["client_passport_series"] = pass_match.group(1)
+            contract_data["client_passport_number"] = pass_match.group(2)
         else:
             # Try "номер XXXXXX серия XXXX" (reversed)
             pass_match_rev = re.search(
-                r"(?:номер\s*(?:пасспорта\s*)?)(\d{4,6})[\s-]*(?:серия\s*)?(\d{4,6})", data_str, re.IGNORECASE
+                r"(?:номер|number)[:\s]*(\d{6})[\s-]*(?:серия|series)[:\s]*(\d{4})", data_str, re.IGNORECASE
             )
             if pass_match_rev:
-                first = pass_match_rev.group(1)
-                second = pass_match_rev.group(2)
-                if len(first) == 6 and len(second) == 4:
-                    contract_data["client_passport_number"] = first
-                    contract_data["client_passport_series"] = second
-                elif len(first) == 4 and len(second) == 6:
-                    contract_data["client_passport_series"] = first
-                    contract_data["client_passport_number"] = second
+                contract_data["client_passport_number"] = pass_match_rev.group(1)
+                contract_data["client_passport_series"] = pass_match_rev.group(2)
+            else:
+                # Try standalone numbers (series 4 digits, number 6 digits)
+                # Look for pattern like "2123 124214" or "номер 2123 серия 124214"
+                numbers = re.findall(r"\b(\d{4,6})\b", data_str)
+                if len(numbers) >= 2:
+                    for i in range(len(numbers) - 1):
+                        first = numbers[i]
+                        second = numbers[i + 1]
+                        # Series is 4 digits, number is 6 digits
+                        if len(first) == 4 and len(second) == 6:
+                            contract_data["client_passport_series"] = first
+                            contract_data["client_passport_number"] = second
+                            break
+                        elif len(first) == 6 and len(second) == 4:
+                            contract_data["client_passport_number"] = first
+                            contract_data["client_passport_series"] = second
+                            break
 
         # Parse birth date (DD.MM.YYYY or DD/MM/YYYY)
         birth_date_match = re.search(r"(\d{2}[./]\d{2}[./]\d{4})", data_str)

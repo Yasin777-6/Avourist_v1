@@ -26,12 +26,16 @@ class AIConversationService:
 
     def process_message(self, lead: Lead, message: str, message_id: str) -> str:
         try:
+            logger.info(f"Processing message from lead {lead.telegram_id}: {message[:100]}...")
+            
             # Handle /start command - clear conversation and greet
             if message.strip().lower() in ['/start', 'start', 'начать']:
+                logger.info(f"Start command received from {lead.telegram_id}")
                 self.memory.clear_conversation(lead.telegram_id)
                 return self._get_greeting_message(lead)
             
             conversation_history = self.memory.get_conversation_history(lead.telegram_id)
+            logger.debug(f"Conversation history length: {len(conversation_history)}")
 
             current_stage = prompts.get_current_stage(lead)
             region_pricing = self.pricing_data.get(lead.region, self.pricing_data["REGIONS"])
@@ -49,8 +53,12 @@ class AIConversationService:
                 messages.append({"role": "assistant", "content": msg["assistant"]})
             messages.append({"role": "user", "content": message})
 
+            logger.debug(f"Sending {len(messages)} messages to DeepSeek API")
             ai_response = self.deepseek.chat_completion(messages)
+            logger.info(f"AI response received: {ai_response[:200]}...")
+            
             processed_response = self._process_response_commands(lead, ai_response, message)
+            logger.debug(f"Processed response: {processed_response[:200]}...")
 
             Conversation.objects.create(
                 lead=lead,
@@ -74,8 +82,11 @@ class AIConversationService:
         import re
 
         commands = re.findall(r"\[([A-Z_]+):?([^\]]*)\]", response)
+        logger.info(f"Found {len(commands)} commands in response: {[cmd[0] for cmd in commands]}")
+        
         for command, params in commands:
             try:
+                logger.debug(f"Processing command: {command} with params: {params[:100] if params else 'None'}...")
                 if command == "UPDATE_LEAD_STATUS":
                     if params in ["HOT", "WARM", "COLD", "CONSULTATION"]:
                         lead.status = params
@@ -104,6 +115,7 @@ class AIConversationService:
                     except (ValueError, IndexError):
                         pass
                 elif command == "GENERATE_CONTRACT":
+                    logger.info(f"Generating contract for lead {lead.telegram_id} with params: {params}")
                     return self.contract_flow.handle_contract_generation(lead, params)
                 elif command == "SEND_SMS_CODE":
                     return self.contract_flow.handle_sms_code(lead)

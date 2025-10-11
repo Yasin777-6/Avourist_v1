@@ -61,7 +61,7 @@ services:
       sh -c "python manage.py migrate &&
              python manage.py setup_templates &&
              python manage.py collectstatic --noinput &&
-             gunicorn --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 120 --worker-class gthread autouristv1.wsgi:application"
+             gunicorn --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 120 --worker-class gthread --access-logfile - --error-logfile - --log-level debug autouristv1.wsgi:application"
 
   celery_worker:
     build: .

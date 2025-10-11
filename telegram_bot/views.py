@@ -20,11 +20,13 @@ class TelegramWebhookView(View):
         try:
             # Parse incoming webhook data
             data = json.loads(request.body.decode('utf-8'))
-            logger.info(f"Received webhook: {data}")
+            logger.info(f"=== TELEGRAM WEBHOOK RECEIVED ===")
+            logger.debug(f"Full webhook data: {json.dumps(data, indent=2, ensure_ascii=False)}")
             
             # Extract message info
             message = data.get('message')
             if not message:
+                logger.warning("No message in webhook data")
                 return JsonResponse({'status': 'ok'})
             
             telegram_id = message['from']['id']
@@ -33,6 +35,8 @@ class TelegramWebhookView(View):
             last_name = message['from'].get('last_name', '')
             message_text = message.get('text', '')
             message_id = message['message_id']
+            
+            logger.info(f"Message from {telegram_id} (@{username}): {message_text[:100]}")
             
             # Get or create lead
             lead, created = Lead.objects.get_or_create(
@@ -44,6 +48,9 @@ class TelegramWebhookView(View):
                 }
             )
             
+            if created:
+                logger.info(f"New lead created: {telegram_id} - {first_name} {last_name}")
+            
             # Update lead info if not created
             if not created:
                 lead.username = username
@@ -52,16 +59,19 @@ class TelegramWebhookView(View):
                 lead.save()
             
             # Process message through AI
+            logger.info(f"Processing message through AI for lead {telegram_id}")
             ai_service = AIConversationService()
             response = ai_service.process_message(lead, message_text, message_id)
             
             # Send response back to Telegram
+            logger.info(f"Sending response to Telegram: {response[:100]}...")
             self._send_telegram_message(telegram_id, response)
             
+            logger.info(f"=== WEBHOOK PROCESSED SUCCESSFULLY ===")
             return JsonResponse({'status': 'ok'})
             
         except Exception as e:
-            logger.error(f"Webhook error: {str(e)}")
+            logger.exception(f"Webhook error: {str(e)}")
             return JsonResponse({'status': 'error', 'message': str(e)})
     
     def _send_telegram_message(self, telegram_id, message):
