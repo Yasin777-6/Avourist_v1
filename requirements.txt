@@ -22,6 +22,7 @@ fillpdf==0.7.0
 
 # OCR & Document Processing
 Pillow==10.1.0
+python-docx==0.8.11
 python-magic==0.4.27
 
 # SMS & Communication
