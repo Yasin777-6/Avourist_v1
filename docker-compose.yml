@@ -35,6 +35,7 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=True
+      - PORT=8000
       - POSTGRES_HOST=db
       - POSTGRES_DB=autourist
       - POSTGRES_USER=postgres
@@ -45,6 +46,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
     volumes:
       - ./media:/app/media
       - ./staticfiles:/app/staticfiles
@@ -52,7 +54,7 @@ services:
       sh -c "python manage.py migrate &&
              python manage.py setup_templates &&
              python manage.py collectstatic --noinput &&
-             gunicorn --bind 0.0.0.0:8000 --workers 2 --reload autouristv1.wsgi:application"
+             gunicorn --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 180 autouristv1.wsgi:application"
 
 volumes:
   postgres_data:
