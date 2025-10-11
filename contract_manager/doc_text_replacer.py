@@ -5,6 +5,7 @@ import logging
 import subprocess
 import tempfile
 import os
+import shutil
 from pathlib import Path
 from typing import Dict
 from datetime import datetime
@@ -163,6 +164,13 @@ class DOCTextReplacer:
         output_dir = doc_path_obj.parent
         
         # Run LibreOffice conversion
+        # Pre-check availability when using PATH reference
+        if self.libreoffice_path == 'soffice' and shutil.which('soffice') is None:
+            raise FileNotFoundError(
+                "LibreOffice (soffice) is required to convert .doc to .docx but was not found. "
+                "Install LibreOffice on the server or provide a .docx version of the template."
+            )
+
         cmd = [
             self.libreoffice_path,
             '--headless',
@@ -172,12 +180,18 @@ class DOCTextReplacer:
         ]
         
         logger.info(f"Running: {' '.join(cmd)}")
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+        except FileNotFoundError:
+            # Executable not found at provided path
+            raise FileNotFoundError(
+                "LibreOffice (soffice) executable not found. Install LibreOffice or switch to a .docx template."
+            )
         
         if result.returncode != 0:
             raise Exception(f"LibreOffice conversion failed: {result.stderr}")

@@ -44,6 +44,11 @@ class ContractFlow:
             logger.info(
                 f"Generating contract with data: {parsed_data} | lead.region={lead.region} | lead.case_type={lead.case_type}"
             )
+            logger.info(
+                f"Contract parameters: instance={parsed_data.get('instance', '1')}, "
+                f"representation={parsed_data.get('representation_type', 'WITHOUT_POA')}, "
+                f"region={lead.region or 'REGIONS'}"
+            )
             contract = self.contract_service.generate_contract(lead, parsed_data)
             logger.info(f"Contract generated: {contract.contract_number}")
 
@@ -208,6 +213,30 @@ class ContractFlow:
             if not lead.email:
                 lead.email = email
                 lead.save()
+        
+        # Parse instance (1, 2, 3, or 4)
+        instance_match = re.search(r"(?:инстанция|inst)[:\s-]*(\d)", data_str, re.IGNORECASE)
+        if instance_match:
+            contract_data["instance"] = instance_match.group(1)
+        else:
+            # Try to detect from keywords
+            if re.search(r"апелляци", data_str, re.IGNORECASE):
+                contract_data["instance"] = "2"
+            elif re.search(r"кассаци", data_str, re.IGNORECASE):
+                contract_data["instance"] = "3"
+            elif re.search(r"надзор", data_str, re.IGNORECASE):
+                contract_data["instance"] = "4"
+        
+        # Parse representation type (WITH_POA or WITHOUT_POA)
+        if re.search(r"(?:по|с)\s*доверенност", data_str, re.IGNORECASE):
+            contract_data["representation_type"] = "WITH_POA"
+        elif re.search(r"без\s*доверенност", data_str, re.IGNORECASE):
+            contract_data["representation_type"] = "WITHOUT_POA"
+        # Also check for explicit markers from AI
+        if "ПО_ДОВЕРЕННОСТИ" in data_str.upper():
+            contract_data["representation_type"] = "WITH_POA"
+        elif "БЕЗ_ДОВЕРЕННОСТИ" in data_str.upper():
+            contract_data["representation_type"] = "WITHOUT_POA"
         
         # Parse custom payment terms (e.g., "25% сейчас, 75% после")
         payment_match = re.search(r"(\d+)%\s*(?:сейчас|предоплата)[,\s]+(\d+)%\s*(?:после|успех)", data_str, re.IGNORECASE)

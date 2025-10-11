@@ -2,11 +2,11 @@ import os
 import json
 import logging
 import uuid
+import shutil
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
 from django.conf import settings
 from django.core.files.base import ContentFile
 
@@ -22,7 +22,13 @@ class ContractTemplateService:
     """Service for managing contract templates and field extraction"""
     
     def __init__(self):
-        self.contracts_dir = settings.CONTRACTS_DIR
+        # Prefer templates stored alongside the app: contract_manager/contracts/
+        local_contracts = (Path(__file__).resolve().parent / 'contracts')
+        if local_contracts.exists():
+            self.contracts_dir = local_contracts
+        else:
+            # Fallback to settings-based directory
+            self.contracts_dir = settings.CONTRACTS_DIR
         self.template_mappings = self._load_template_mappings()
     
     def _load_template_mappings(self) -> Dict:
@@ -75,6 +81,11 @@ class ContractTemplateService:
         try:
             template_file = self.template_mappings[representation_type][instance][region]
             template_path = self.contracts_dir / template_file
+            # Prefer .docx variant if available next to .doc template
+            if template_path.suffix.lower() == '.doc':
+                docx_candidate = template_path.with_suffix('.docx')
+                if docx_candidate.exists():
+                    template_path = docx_candidate
             
             if template_path.exists():
                 return str(template_path)
@@ -83,6 +94,11 @@ class ContractTemplateService:
                 if region == 'MOSCOW':
                     fallback_file = self.template_mappings[representation_type][instance]['REGIONS']
                     fallback_path = self.contracts_dir / fallback_file
+                    # Prefer .docx fallback if available
+                    if fallback_path.suffix.lower() == '.doc':
+                        docx_fallback = fallback_path.with_suffix('.docx')
+                        if docx_fallback.exists():
+                            fallback_path = docx_fallback
                     if fallback_path.exists():
                         return str(fallback_path)
                         
@@ -231,6 +247,12 @@ class ContractGenerationService:
             try:
                 # Use binary text replacer for .doc files, DOCX filler for .docx files
                 if doc_template_path.suffix.lower() == '.doc':
+                    # If LibreOffice is not available, provide clear guidance
+                    if shutil.which('soffice') is None:
+                        raise ValueError(
+                            "LibreOffice (soffice) is not installed on the server. Convert your contract templates to .docx "
+                            "and place the .docx files in the same contracts folder, or install LibreOffice on the server."
+                        )
                     logger.info("Using DOC text replacer for .doc file...")
                     filled_doc = self.doc_replacer.fill_doc(
                         template_path=str(doc_template_path),
