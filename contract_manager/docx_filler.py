@@ -181,13 +181,18 @@ class DOCXFiller:
         if email:
             replacements["Е-mail______________________________"] = f"Е-mail: {email}"
         
-        # Case article - replace in default descriptions
+        # Case article - replace in default descriptions and standalone
         case_article = data.get('case_article', '')
         if case_article:
+            # Replace standalone article references
+            replacements["ч.1 ст.12.8 КоАП РФ"] = case_article
+            replacements["ч.1 ст.12.8 КоАП"] = case_article
+            
             # Replace article in default descriptions
             default_descs_with_article = [
                 "подготовитьходатайство на получение материалов дела, ходатайство о привлечения к делу защитника, подготовка жалобы на постановление по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ",
-                "получение материалов дела, ходатайство о привлечении к делу защитника, ходатайство о переводе дела по месту жительства, подготовка письменного объяснения лица по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ"
+                "получение материалов дела, ходатайство о привлечении к делу защитника, ходатайство о переводе дела по месту жительства, подготовка письменного объяснения лица по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ",
+                "получение материалов дела, ходатайство о привлечении к делу защитника, ходатайство о переводе дела по месту жительства, подготовка письменного объяснения лица по делу об административном правонарушении по ч.1 ст.12.8 КоАП РФ."
             ]
             for default_desc in default_descs_with_article:
                 # Replace with actual article
@@ -200,10 +205,23 @@ class DOCXFiller:
             # Multiple possible default descriptions
             default_descs = [
                 "провести правовой анализ документов (материалов дела),подготовка ответа на требование каршеринга, подготовка претензии, подготовка Отзыва на исковое заявления, ответ на претензию,заявление в соответствующие органы",
-                "подготовка ответа на требование каршеринга, подготовка претензии, подготовка Отзыва на исковое заявления, ответ на претензию,заявление в соответствующие органы"
+                "подготовка ответа на требование каршеринга, подготовка претензии, подготовка Отзыва на исковое заявления, ответ на претензию,заявление в соответствующие органы",
+                "получение материалов дела, ходатайство о привлечении к делу защитника, ходатайство о переводе дела по месту жительства, подготовка письменного объяснения лица по делу об административном правонарушении"
             ]
             for default_desc in default_descs:
                 replacements[default_desc] = case_desc
+        
+        # Payment terms description
+        payment_terms_desc = data.get('payment_terms_description', '')
+        if payment_terms_desc:
+            # Replace default payment terms placeholders
+            default_payment_terms = [
+                "__% предоплата, __% после положительного решения",
+                "___% предоплата, ___% после положительного решения",
+                "50% предоплата, 50% после положительного решения"
+            ]
+            for default_term in default_payment_terms:
+                replacements[default_term] = payment_terms_desc
         
         # Representation clause
         representation_clause = data.get('representation_clause', '')
