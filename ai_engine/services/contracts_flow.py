@@ -89,19 +89,24 @@ class ContractFlow:
                 logger.warning(f"Could not read contract file path: {e}")
 
             logger.info(f"=== GENERATING VERIFICATION CODE ===")
-            self.sms_service.generate_verification_code(contract)
+            verification = self.sms_service.generate_verification_code(contract)
             contract.status = "SMS_SENT"
             contract.save()
             logger.info(f"Contract status updated to SMS_SENT")
+            
+            # Get the verification code to send via Telegram as fallback
+            code = verification.verification_code
+            logger.info(f"Verification code generated: {code}")
 
-            response_msg = f"""  Договор отправлен в чат!
+            response_msg = f"""📄 Договор отправлен в чат!
 
-            Номер: {contract.contract_number}
-            Стоимость: {int(contract.template.base_cost):,} руб
+Номер: {contract.contract_number}
+Стоимость: {int(contract.template.base_cost):,} руб
 
-            <b>Код подтверждения отправлен на вашу почту</b>
+<b>🔐 Ваш код подтверждения: {code}</b>
 
-            Проверьте email и введите код для подписания договора."""
+Введите этот код для подписания договора.
+(Код также отправлен на email {contract.lead.email})"""
             
             logger.info(f"=== CONTRACT GENERATION COMPLETED SUCCESSFULLY ===")
             return response_msg

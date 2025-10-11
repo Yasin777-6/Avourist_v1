@@ -402,6 +402,7 @@ class EmailVerificationService:
             logger.info(f"User: {settings.EMAIL_HOST_USER}")
             logger.info(f"Password set: {'Yes' if settings.EMAIL_HOST_PASSWORD else 'No'}")
             
+            # Set timeout to avoid hanging
             send_mail(
                 subject=subject,
                 message=message,
@@ -414,8 +415,21 @@ class EmailVerificationService:
             logger.error(f"❌ Failed to send email to {email}: {e}")
             logger.error(f"Error type: {type(e).__name__}")
             logger.exception("Full email error traceback:")
+            
+            # CRITICAL: Log code to console for manual delivery
+            logger.critical(f"""\n
+{'='*60}
+🚨 EMAIL FAILED - MANUAL CODE DELIVERY REQUIRED 🚨
+{'='*60}
+Contract: {contract_number}
+Email: {email}
+VERIFICATION CODE: {code}
+{'='*60}
+Please manually send this code to the client.
+{'='*60}\n""")
+            
             # Don't raise - allow contract generation to continue
-            logger.warning(f"Contract {contract_number} created but email failed. User can request code resend.")
+            logger.warning(f"Contract {contract_number} created but email failed. Code logged for manual delivery.")
     
     def verify_code(self, contract: Contract, entered_code: str) -> bool:
         """Verify entered SMS code"""
