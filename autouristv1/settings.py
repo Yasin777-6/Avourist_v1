@@ -30,7 +30,27 @@ SECRET_KEY = 'django-insecure-b55)uplorifkl5+sa=0p_s@m9hi_$yu9rna8n(ef*prum9bu4&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# Hosts and security
+# Allow overriding via env var ALLOWED_HOSTS (comma-separated) or RAILWAY_PUBLIC_DOMAIN
+_hosts_env = os.getenv('ALLOWED_HOSTS') or os.getenv('RAILWAY_PUBLIC_DOMAIN')
+if _hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in _hosts_env.split(',') if h.strip()]
+else:
+    # Defaults allow local dev and Railway subdomains
+    ALLOWED_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+        '.up.railway.app',
+    ]
+
+# CSRF trusted origins (needed for POSTs via HTTPS behind proxies)
+_csrf_env = os.getenv('CSRF_TRUSTED_ORIGINS')
+if _csrf_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.up.railway.app',
+    ]
 
 
 # Application definition
