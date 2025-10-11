@@ -201,25 +201,38 @@ class ContractGenerationService:
         merged_data = dict(contract_data or {})
         merged_data.setdefault('contract_date', datetime.now().strftime('%d.%m.%Y'))
         
+        logger.info(f"=== PRICING CALCULATION ===")
+        logger.info(f"Template base cost: {template.base_cost}")
+        logger.info(f"Input total_amount: {merged_data.get('total_amount')}")
+        
         # Calculate pricing if not provided
         total_amount = merged_data.get('total_amount') or int(template.base_cost)
         merged_data['total_amount'] = total_amount
+        logger.info(f"Final total_amount: {total_amount}")
         
         # Calculate prepayment based on custom percentage or default 50%
         if not merged_data.get('prepayment'):
             prepayment_percent = merged_data.get('prepayment_percent') or 50
             merged_data['prepayment'] = int(total_amount * (prepayment_percent / 100))
+            logger.info(f"Calculated prepayment: {merged_data['prepayment']} ({prepayment_percent}%)")
+        else:
+            logger.info(f"Using provided prepayment: {merged_data['prepayment']}")
         
         # Calculate success fee based on custom percentage or remaining amount
         if not merged_data.get('success_fee'):
             success_fee_percent = merged_data.get('success_fee_percent')
             if success_fee_percent:
                 merged_data['success_fee'] = int(total_amount * (success_fee_percent / 100))
+                logger.info(f"Calculated success_fee: {merged_data['success_fee']} ({success_fee_percent}%)")
             else:
                 merged_data['success_fee'] = total_amount - merged_data['prepayment']
+                logger.info(f"Calculated success_fee (remainder): {merged_data['success_fee']}")
+        else:
+            logger.info(f"Using provided success_fee: {merged_data['success_fee']}")
         
         # Docs preparation fee (default: 5000)
         merged_data.setdefault('docs_prep_fee', 5000)
+        logger.info(f"Docs prep fee: {merged_data['docs_prep_fee']}")
         
         # Add payment terms description if provided
         if merged_data.get('payment_terms'):
@@ -229,7 +242,9 @@ class ContractGenerationService:
             success_pct = int((merged_data['success_fee'] / total_amount) * 100)
             merged_data['payment_terms_description'] = f"{prepay_pct}% предоплата, {success_pct}% после положительного решения"
         
+        logger.info(f"Payment terms: {merged_data['payment_terms_description']}")
         merged_data['contract_number'] = contract.contract_number
+        logger.info(f"=== END PRICING CALCULATION ===")
         
         # Check if DOC/DOCX template exists (use the actual template from contracts folder)
         # The template_path already points to the correct template
@@ -237,7 +252,14 @@ class ContractGenerationService:
         
         # Use DOC/DOCX filler if template has .doc or .docx extension
         if self.use_docx and doc_template_path.suffix.lower() in ['.doc', '.docx']:
-            logger.info(f"Filling DOC/DOCX template: {doc_template_path.name}...")
+            logger.info(f"=== FILLING TEMPLATE ===")
+            logger.info(f"Template: {doc_template_path.name}")
+            logger.info(f"Total amount: {merged_data.get('total_amount')}")
+            logger.info(f"Prepayment: {merged_data.get('prepayment')}")
+            logger.info(f"Success fee: {merged_data.get('success_fee')}")
+            logger.info(f"Docs fee: {merged_data.get('docs_prep_fee')}")
+            logger.info(f"Payment terms desc: {merged_data.get('payment_terms_description')}")
+            logger.info(f"Case article: {merged_data.get('case_article')}")
             
             # Determine output extension - .doc files may be converted to .docx
             output_extension = doc_template_path.suffix
@@ -286,6 +308,7 @@ class ContractGenerationService:
                     save=True
                 )
                 logger.info(f"Saved generated document as {doc_filename} for contract {contract.contract_number}")
+                logger.info(f"=== CONTRACT GENERATION COMPLETE ===")
                 return contract
             except Exception as e:
                 logger.error(f"DOC/DOCX filling failed: {e}")
@@ -344,7 +367,7 @@ class EmailVerificationService:
         return verification
     
     def _send_code_via_email(self, email: str, code: str, contract_number: str):
-        """Send verification code via email (synchronous)"""
+        """Send verification code via email (synchronous with fallback)"""
         from django.core.mail import send_mail
         from django.conf import settings
         
@@ -368,9 +391,16 @@ class EmailVerificationService:
         """.strip()
         
         try:
-            logger.info(f"Sending email from {settings.DEFAULT_FROM_EMAIL} to {email}")
-            logger.info(f"Email backend: {settings.EMAIL_BACKEND}")
-            logger.info(f"Email host: {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+            logger.info(f"=== ATTEMPTING EMAIL SEND ===")
+            logger.info(f"From: {settings.DEFAULT_FROM_EMAIL}")
+            logger.info(f"To: {email}")
+            logger.info(f"Subject: {subject}")
+            logger.info(f"Code: {code}")
+            logger.info(f"Backend: {settings.EMAIL_BACKEND}")
+            logger.info(f"Host: {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+            logger.info(f"TLS: {settings.EMAIL_USE_TLS}")
+            logger.info(f"User: {settings.EMAIL_HOST_USER}")
+            logger.info(f"Password set: {'Yes' if settings.EMAIL_HOST_PASSWORD else 'No'}")
             
             send_mail(
                 subject=subject,
@@ -382,8 +412,10 @@ class EmailVerificationService:
             logger.info(f"✅ Email sent successfully to {email}")
         except Exception as e:
             logger.error(f"❌ Failed to send email to {email}: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
             logger.exception("Full email error traceback:")
-            raise
+            # Don't raise - allow contract generation to continue
+            logger.warning(f"Contract {contract_number} created but email failed. User can request code resend.")
     
     def verify_code(self, contract: Contract, entered_code: str) -> bool:
         """Verify entered SMS code"""

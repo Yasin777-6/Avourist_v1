@@ -21,56 +21,80 @@ class ContractFlow:
 
     def handle_contract_generation(self, lead, client_data):
         try:
+            logger.info(f"=== CONTRACT GENERATION STARTED ===")
+            logger.info(f"Lead ID: {lead.id}, Telegram ID: {lead.telegram_id}")
+            logger.info(f"Lead region: {lead.region}, case_type: {lead.case_type}")
+            logger.info(f"Client data type: {type(client_data).__name__}")
+            
             if isinstance(client_data, str):
                 data_str = client_data.strip()
+                logger.info(f"Client data string (first 200 chars): {data_str[:200]}...")
+                
                 if not data_str or data_str.upper() in {"RESEND", "REPEAT", "SEND_AGAIN"}:
+                    logger.info("Resending existing contract...")
                     existing_contract = Contract.objects.filter(lead=lead).order_by("-created_at").first()
                     if existing_contract:
+                        logger.info(f"Found existing contract: {existing_contract.contract_number}")
                         self._send_contract_to_telegram(lead.telegram_id, existing_contract)
                         return (
                             "  Я повторно отправил договор в этот чат. Проверьте файл и введите код из email для подписания."
                         )
+                    logger.warning("No existing contract found for resend")
                     return (
                         "У меня пока нет готового договора для отправки. Давайте оформим заново — пришлите ваши паспортные данные, адрес и телефон."
                     )
                 
                 # Try pipe-delimited format first (from AI command)
                 if "|" in data_str:
+                    logger.info("Parsing pipe-delimited format...")
                     parsed_data = self._parse_pipe_format(lead, data_str)
                 else:
+                    logger.info("Parsing natural language format...")
                     # Fallback to natural language parsing
                     parsed_data = self._parse_contract_data(lead, data_str)
             else:
+                logger.info("Client data is dict or other type")
                 parsed_data = client_data if isinstance(client_data, dict) else None
+            
             if not parsed_data:
+                logger.error("Failed to parse contract data")
                 return (
                     "Не смог собрать данные для договора. Укажите ФИО, серию и номер паспорта, адрес и телефон одной строкой."
                 )
 
-            logger.info(
-                f"Generating contract with data: {parsed_data} | lead.region={lead.region} | lead.case_type={lead.case_type}"
-            )
-            logger.info(
-                f"Contract parameters: instance={parsed_data.get('instance', '1')}, "
-                f"representation={parsed_data.get('representation_type', 'WITHOUT_POA')}, "
-                f"region={lead.region or 'REGIONS'}"
-            )
+            logger.info(f"=== PARSED CONTRACT DATA ===")
+            logger.info(f"Client name: {parsed_data.get('client_full_name')}")
+            logger.info(f"Passport: {parsed_data.get('client_passport_series')} / {parsed_data.get('client_passport_number')}")
+            logger.info(f"Email: {parsed_data.get('email')}")
+            logger.info(f"Phone: {parsed_data.get('client_phone')}")
+            logger.info(f"Address: {parsed_data.get('client_address')}")
+            logger.info(f"Case article: {parsed_data.get('case_article')}")
+            logger.info(f"Instance: {parsed_data.get('instance', '1')}")
+            logger.info(f"Representation: {parsed_data.get('representation_type', 'WITHOUT_POA')}")
+            logger.info(f"Total amount: {parsed_data.get('total_amount')}")
+            logger.info(f"Prepayment: {parsed_data.get('prepayment')}")
+            logger.info(f"Success fee: {parsed_data.get('success_fee')}")
+            logger.info(f"Lead region: {lead.region}, case_type: {lead.case_type}")
+            
+            logger.info(f"=== CALLING CONTRACT SERVICE ===")
             contract = self.contract_service.generate_contract(lead, parsed_data)
-            logger.info(f"Contract generated: {contract.contract_number}")
+            logger.info(f"✅ Contract generated successfully: {contract.contract_number}")
 
+            logger.info(f"=== SENDING CONTRACT TO TELEGRAM ===")
             self._send_contract_to_telegram(lead.telegram_id, contract)
             try:
                 pdf_path = getattr(contract.generated_pdf, "path", None)
-                logger.info(f"Contract PDF path: {pdf_path}")
-            except Exception:
-                logger.warning("Could not read contract PDF path")
+                logger.info(f"Contract file path: {pdf_path}")
+            except Exception as e:
+                logger.warning(f"Could not read contract file path: {e}")
 
+            logger.info(f"=== GENERATING VERIFICATION CODE ===")
             self.sms_service.generate_verification_code(contract)
             contract.status = "SMS_SENT"
             contract.save()
+            logger.info(f"Contract status updated to SMS_SENT")
 
-            return (
-                f"""  Договор отправлен в чат!
+            response_msg = f"""  Договор отправлен в чат!
 
             Номер: {contract.contract_number}
             Стоимость: {int(contract.template.base_cost):,} руб
@@ -78,9 +102,14 @@ class ContractFlow:
             <b>Код подтверждения отправлен на вашу почту</b>
 
             Проверьте email и введите код для подписания договора."""
-            )
-        except Exception:
-            logger.exception("Contract generation error")
+            
+            logger.info(f"=== CONTRACT GENERATION COMPLETED SUCCESSFULLY ===")
+            return response_msg
+        except Exception as e:
+            logger.error(f"=== CONTRACT GENERATION FAILED ===")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error message: {str(e)}")
+            logger.exception("Full contract generation error traceback:")
             return "Ошибка при создании договора. Наш менеджер скоро свяжется с вами."
 
     def _parse_pipe_format(self, lead, data_str: str) -> Dict:
@@ -89,9 +118,13 @@ class ContractFlow:
         ФИО|ДД.ММ.ГГГГ|серия ХХХХ номер ХХХХХХ|адрес|телефон|email|статья|инстанция|WITH_POA/WITHOUT_POA
         """
         try:
+            logger.info(f"=== PARSING PIPE FORMAT ===")
             parts = [p.strip() for p in data_str.split("|")]
+            logger.info(f"Split into {len(parts)} parts")
+            
             if len(parts) < 9:
                 logger.warning(f"Pipe format incomplete: {len(parts)} parts, expected 9")
+                logger.warning(f"Parts: {parts}")
                 return None
             
             # Parse passport (format: "серия 1234 номер 123456")
@@ -130,40 +163,52 @@ class ContractFlow:
             
             # Save email to lead if not set
             if contract_data["email"] and not lead.email:
+                logger.info(f"Saving email to lead: {contract_data['email']}")
                 lead.email = contract_data["email"]
                 lead.save()
             
             # Save phone to lead if not set
             if contract_data["client_phone"] and not lead.phone_number:
+                logger.info(f"Saving phone to lead: {contract_data['client_phone']}")
                 lead.phone_number = contract_data["client_phone"]
                 lead.save()
             
-            logger.info(f"Parsed pipe format successfully: {contract_data}")
+            logger.info(f"✅ Parsed pipe format successfully")
+            logger.info(f"Payment fields - total: {contract_data.get('total_amount')}, prepay: {contract_data.get('prepayment')}, success: {contract_data.get('success_fee')}")
             return contract_data
             
         except Exception as e:
-            logger.error(f"Failed to parse pipe format: {e}")
+            logger.error(f"❌ Failed to parse pipe format: {e}")
+            logger.exception("Pipe format parsing error:")
             return None
 
     def _send_contract_to_telegram(self, telegram_id: int, contract):
         try:
+            logger.info(f"Sending contract {contract.contract_number} to Telegram user {telegram_id}")
             file_field = contract.generated_pdf
+            
             if file_field and getattr(file_field, "path", None):
+                file_path = file_field.path
+                logger.info(f"Contract file path: {file_path}")
+                
                 url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendDocument"
-                with open(file_field.path, "rb") as file:
+                with open(file_path, "rb") as file:
                     files = {"document": file}
                     data = {
                         "chat_id": telegram_id,
                         "caption": f"📄 Договор №{contract.contract_number}\n\nПроверьте данные и введите код из email для подписания.",
                         "parse_mode": "HTML",
                     }
+                    logger.info(f"Posting to Telegram API...")
                     response = requests.post(url, data=data, files=files, timeout=30)
                     response.raise_for_status()
-                    logger.info(f"Contract sent to {telegram_id}")
+                    logger.info(f"✅ Contract sent successfully to {telegram_id}")
             else:
-                logger.error("No generated PDF available to send for this contract")
+                logger.error(f"❌ No generated file available for contract {contract.contract_number}")
+                logger.error(f"File field: {file_field}, has path: {hasattr(file_field, 'path') if file_field else 'N/A'}")
         except Exception as e:
-            logger.error(f"Failed to send contract file: {str(e)}")
+            logger.error(f"❌ Failed to send contract file to {telegram_id}: {str(e)}")
+            logger.exception("Telegram send error traceback:")
 
     def _parse_contract_data(self, lead, data_str: str) -> Dict:
         contract_data: Dict = {

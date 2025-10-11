@@ -53,23 +53,36 @@ class DOCXFiller:
         
         # Log what we're replacing
         logger.info(f"=== DOCX REPLACEMENTS ===")
-        logger.info(f"Passport series: {data.get('client_passport_series', 'MISSING')}")
-        logger.info(f"Passport number: {data.get('client_passport_number', 'MISSING')}")
-        logger.info(f"Case article: {data.get('case_article', 'MISSING')}")
+        logger.info(f"Input data:")
+        logger.info(f"  Passport: {data.get('client_passport_series', 'MISSING')} / {data.get('client_passport_number', 'MISSING')}")
+        logger.info(f"  Case article: {data.get('case_article', 'MISSING')}")
+        logger.info(f"  Total amount: {data.get('total_amount', 'MISSING')}")
+        logger.info(f"  Prepayment: {data.get('prepayment', 'MISSING')}")
+        logger.info(f"  Success fee: {data.get('success_fee', 'MISSING')}")
+        logger.info(f"  Docs fee: {data.get('docs_prep_fee', 'MISSING')}")
+        logger.info(f"  Payment terms desc: {data.get('payment_terms_description', 'MISSING')}")
         logger.info(f"Total replacements: {len(replacements)}")
-        for key, value in list(replacements.items())[:10]:  # Log first 10
-            logger.info(f"  '{key}' → '{value}'")
+        logger.info(f"First 15 replacements:")
+        for key, value in list(replacements.items())[:15]:
+            logger.info(f"  '{key[:50]}...' → '{str(value)[:50]}...'")
+        
+        # Count replacements made
+        replacements_made = 0
         
         # Replace text in paragraphs
         for paragraph in doc.paragraphs:
-            self._replace_in_paragraph(paragraph, replacements)
+            if self._replace_in_paragraph(paragraph, replacements):
+                replacements_made += 1
         
         # Replace text in tables
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for paragraph in cell.paragraphs:
-                        self._replace_in_paragraph(paragraph, replacements)
+                        if self._replace_in_paragraph(paragraph, replacements):
+                            replacements_made += 1
+        
+        logger.info(f"Total paragraphs/cells modified: {replacements_made}")
         
         # Save filled document
         doc.save(output_path)
@@ -231,9 +244,11 @@ class DOCXFiller:
         
         return replacements
     
-    def _replace_in_paragraph(self, paragraph, replacements: Dict[str, str]):
-        """Replace placeholder text in a paragraph while preserving formatting."""
+    def _replace_in_paragraph(self, paragraph, replacements: Dict[str, str]) -> bool:
+        """Replace placeholder text in a paragraph while preserving formatting.
+        Returns True if any replacement was made."""
         full_text = paragraph.text
+        original_text = full_text
         
         # Check if any replacement is needed
         for placeholder, replacement in replacements.items():
@@ -242,7 +257,7 @@ class DOCXFiller:
                 full_text = full_text.replace(placeholder, replacement)
         
         # If text was modified, update the paragraph
-        if full_text != paragraph.text:
+        if full_text != original_text:
             # Clear existing runs
             for run in paragraph.runs:
                 run.text = ""
@@ -252,6 +267,8 @@ class DOCXFiller:
                 paragraph.runs[0].text = full_text
             else:
                 paragraph.add_run(full_text)
+            return True
+        return False
     
     def _amount_to_words(self, amount: int) -> str:
         """Convert amount to Russian words."""
