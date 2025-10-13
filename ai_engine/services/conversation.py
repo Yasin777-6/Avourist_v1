@@ -81,9 +81,36 @@ class AIConversationService:
         commands = re.findall(r"\[([A-Z_]+):?([^\]]*)\]", response)
         logger.info(f"Found {len(commands)} commands in response: {[cmd[0] for cmd in commands]}")
         
+        # Process commands that need immediate return (document generation, etc.)
         for command, params in commands:
             try:
                 logger.debug(f"Processing command: {command} with params: {params[:100] if params else 'None'}...")
+                
+                # Commands that generate and send documents - return immediately
+                if command == "GENERATE_CONTRACT":
+                    logger.info(f"Generating contract for lead {lead.telegram_id} with params: {params}")
+                    return self.contract_flow.handle_contract_generation(lead, params)
+                elif command == "GENERATE_PETITION":
+                    logger.info(f"Generating petition for lead {lead.telegram_id} with params: {params}")
+                    # Import document generator
+                    from ai_engine.services.document_generator import DocumentGenerator
+                    doc_gen = DocumentGenerator()
+                    # Generate petition and send it
+                    return doc_gen.generate_and_send_petition(lead, params)
+                elif command == "SEND_SMS_CODE":
+                    return self.contract_flow.handle_sms_code(lead)
+                elif command == "VERIFY_SMS":
+                    return self.contract_flow.handle_sms_verification(lead, params)
+                    
+            except Exception as e:
+                logger.error(f"Command processing error: {str(e)}")
+                logger.exception("Command error traceback:")
+                # Return error message if document generation fails
+                return f"❌ Произошла ошибка: {str(e)}\n\nПопробуйте еще раз или обратитесь к менеджеру."
+        
+        # Process state-update commands (don't return, just update lead)
+        for command, params in commands:
+            try:
                 if command == "UPDATE_LEAD_STATUS":
                     if params in ["HOT", "WARM", "COLD", "CONSULTATION"]:
                         lead.status = params
@@ -111,19 +138,13 @@ class AIConversationService:
                             lead.save()
                     except (ValueError, IndexError):
                         pass
-                elif command == "GENERATE_CONTRACT":
-                    logger.info(f"Generating contract for lead {lead.telegram_id} with params: {params}")
-                    return self.contract_flow.handle_contract_generation(lead, params)
-                elif command == "SEND_SMS_CODE":
-                    return self.contract_flow.handle_sms_code(lead)
-                elif command == "VERIFY_SMS":
-                    return self.contract_flow.handle_sms_verification(lead, params)
                 elif command == "TRANSFER_TO_LAWYER":
                     lead.status = "FOLLOW_UP"
                     lead.save()
             except Exception as e:
-                logger.error(f"Command processing error: {str(e)}")
+                logger.error(f"State update command error: {str(e)}")
 
+        # Clean response by removing command tags
         clean_response = re.sub(r"\[[A-Z_]+:?[^\]]*\]", "", response).strip()
         return clean_response
     
