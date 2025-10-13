@@ -180,18 +180,72 @@ def handle_message(message_data):
 
 def send_telegram_message(chat_id, text):
     """Send message via Telegram API"""
-    url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        'chat_id': chat_id,
-        'text': text,
-        'parse_mode': 'HTML'
-    }
+    # Check if response is a petition document (not just mentions it)
+    # Must have: ХОДАТАЙСТВО as title + court address + signature line
+    is_petition = (
+        'ХОДАТАЙСТВО' in text.upper() and 
+        len(text) > 300 and
+        ('В ' in text and 'суд' in text.lower()) and  # Court address
+        ('Подпись:' in text or 'подпись' in text.lower())  # Signature line
+    )
     
+    if is_petition:
+        # This is a petition document - send as .docx
+        send_petition_as_document(chat_id, text)
+    else:
+        # Regular message
+        url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {
+            'chat_id': chat_id,
+            'text': text,
+            'parse_mode': 'HTML'
+        }
+        
+        try:
+            response = requests.post(url, json=payload)
+            response.raise_for_status()
+        except Exception as e:
+            logger.error(f"Failed to send message: {str(e)}")
+
+
+def send_petition_as_document(chat_id, petition_text):
+    """Send petition as .docx document"""
     try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
+        from ai_engine.services.document_generator import DocumentGenerator
+        
+        # Generate .docx file
+        doc_gen = DocumentGenerator()
+        filepath = doc_gen.generate_petition_docx(petition_text)
+        
+        # Send document via Telegram
+        url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendDocument"
+        
+        with open(filepath, 'rb') as doc_file:
+            files = {'document': doc_file}
+            data = {
+                'chat_id': chat_id,
+                'caption': '📄 Ходатайство готово!\n\n✅ Скачайте документ, распечатайте и подайте в суд.\n\n💡 Также можете отредактировать в Word при необходимости.'
+            }
+            
+            response = requests.post(url, files=files, data=data)
+            response.raise_for_status()
+        
+        logger.info(f"Petition document sent to {chat_id}")
+        
+        # Clean up file after sending
+        import os
+        os.remove(filepath)
+        
     except Exception as e:
-        logger.error(f"Failed to send message: {str(e)}")
+        logger.error(f"Failed to send petition as document: {str(e)}")
+        # Fallback to text message
+        url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {
+            'chat_id': chat_id,
+            'text': petition_text,
+            'parse_mode': 'HTML'
+        }
+        requests.post(url, json=payload)
 
 
 def get_updates(offset=None):

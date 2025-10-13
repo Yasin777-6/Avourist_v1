@@ -1,8 +1,10 @@
 import logging
+import os
 from decimal import Decimal
 from typing import Dict, List
 
 from django.utils import timezone
+from django.conf import settings
 
 from leads.models import Lead, Conversation
 
@@ -11,6 +13,10 @@ from .memory import ConversationMemoryService
 from .contracts_flow import ContractFlow
 from . import analytics
 from . import prompts
+
+# Multi-agent imports
+from ..agents.orchestrator import AgentOrchestrator
+from ..agents import AGENT_REGISTRY
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +29,14 @@ class AIConversationService:
         self.memory = ConversationMemoryService()
         self.contract_flow = ContractFlow()
         self.pricing_data = analytics.load_pricing_data()
+        
+        # Multi-agent system (feature flag)
+        self.use_multi_agent = os.getenv('USE_MULTI_AGENT', 'True') == 'True'
+        if self.use_multi_agent:
+            self.orchestrator = AgentOrchestrator()
+            logger.info("Multi-agent system enabled")
+        else:
+            logger.info("Using legacy single-agent system")
 
     def process_message(self, lead: Lead, message: str, message_id: str) -> str:
         try:
@@ -34,28 +48,11 @@ class AIConversationService:
                 self.memory.clear_conversation(lead.telegram_id)
                 return self._get_greeting_message(lead)
             
-            conversation_history = self.memory.get_conversation_history(lead.telegram_id)
-            logger.debug(f"Conversation history length: {len(conversation_history)}")
-
-            current_stage = prompts.get_current_stage(lead)
-            region_pricing = self.pricing_data.get(lead.region, self.pricing_data["REGIONS"])
-            formatted_pricing = analytics.format_pricing_for_prompt(region_pricing)
-
-            system_prompt = prompts.build_system_prompt(
-                lead=lead,
-                current_stage=current_stage,
-                formatted_pricing=formatted_pricing,
-            )
-
-            messages: List[Dict] = [{"role": "system", "content": system_prompt}]
-            for msg in conversation_history[-10:]:
-                messages.append({"role": "user", "content": msg["user"]})
-                messages.append({"role": "assistant", "content": msg["assistant"]})
-            messages.append({"role": "user", "content": message})
-
-            logger.debug(f"Sending {len(messages)} messages to DeepSeek API")
-            ai_response = self.deepseek.chat_completion(messages)
-            logger.info(f"AI response received: {ai_response[:200]}...")
+            # Route to appropriate processing method
+            if self.use_multi_agent:
+                ai_response = self._process_with_agents(lead, message)
+            else:
+                ai_response = self._process_legacy(lead, message)
             
             processed_response = self._process_response_commands(lead, ai_response, message)
             logger.debug(f"Processed response: {processed_response[:200]}...")
@@ -129,6 +126,63 @@ class AIConversationService:
 
         clean_response = re.sub(r"\[[A-Z_]+:?[^\]]*\]", "", response).strip()
         return clean_response
+    
+    def _process_with_agents(self, lead: Lead, message: str) -> str:
+        """Process message using multi-agent system"""
+        logger.info("Using multi-agent system")
+        
+        # Build context
+        context = {
+            'conversation_history': self.memory.get_conversation_history(lead.telegram_id),
+            'pricing_data': self.pricing_data,
+        }
+        
+        # Route to appropriate agent
+        agent_type = self.orchestrator.route_message(lead, message, context)
+        logger.info(f"Routed to agent: {agent_type}")
+        
+        # Get agent class and instantiate
+        agent_class = AGENT_REGISTRY.get(agent_type)
+        if not agent_class:
+            logger.error(f"Agent not found: {agent_type}")
+            return "Извините, произошла ошибка маршрутизации."
+        
+        agent = agent_class(self.deepseek, self.memory)
+        
+        # Process message with agent
+        response = agent.process(lead, message, context)
+        logger.info(f"Agent {agent_type} response: {response[:200]}...")
+        
+        return response
+    
+    def _process_legacy(self, lead: Lead, message: str) -> str:
+        """Process message using legacy single-agent system"""
+        logger.info("Using legacy system")
+        
+        conversation_history = self.memory.get_conversation_history(lead.telegram_id)
+        logger.debug(f"Conversation history length: {len(conversation_history)}")
+
+        current_stage = prompts.get_current_stage(lead)
+        region_pricing = self.pricing_data.get(lead.region, self.pricing_data["REGIONS"])
+        formatted_pricing = analytics.format_pricing_for_prompt(region_pricing)
+
+        system_prompt = prompts.build_system_prompt(
+            lead=lead,
+            current_stage=current_stage,
+            formatted_pricing=formatted_pricing,
+        )
+
+        messages: List[Dict] = [{"role": "system", "content": system_prompt}]
+        for msg in conversation_history[-10:]:
+            messages.append({"role": "user", "content": msg["user"]})
+            messages.append({"role": "assistant", "content": msg["assistant"]})
+        messages.append({"role": "user", "content": message})
+
+        logger.debug(f"Sending {len(messages)} messages to DeepSeek API")
+        ai_response = self.deepseek.chat_completion(messages)
+        logger.info(f"AI response received: {ai_response[:200]}...")
+        
+        return ai_response
     
     def _get_greeting_message(self, lead: Lead) -> str:
         """Get greeting message for new conversation"""

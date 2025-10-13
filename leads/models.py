@@ -79,3 +79,31 @@ class Conversation(models.Model):
         
     def __str__(self):
         return f"Conversation {self.lead.telegram_id} - {self.created_at}"
+
+
+class CaseDocument(models.Model):
+    """Store case documents uploaded by clients"""
+    
+    DOCUMENT_TYPE_CHOICES = [
+        ('protocol', 'Протокол об административном правонарушении'),
+        ('photo', 'Фотоматериалы'),
+        ('video', 'Видеозапись'),
+        ('court_decision', 'Решение суда'),
+        ('medical_certificate', 'Медицинская справка'),
+        ('witness_statement', 'Показания свидетелей'),
+        ('other', 'Другое'),
+    ]
+    
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='case_documents')
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPE_CHOICES, default='other')
+    file = models.FileField(upload_to='case_documents/%Y/%m/%d/')
+    file_name = models.CharField(max_length=255)
+    file_size = models.IntegerField(help_text="File size in bytes")
+    description = models.TextField(blank=True, null=True)
+    uploaded_at = models.DateTimeField(default=timezone.now)
+    
+    class Meta:
+        ordering = ['-uploaded_at']
+    
+    def __str__(self):
+        return f"{self.get_document_type_display()} - {self.lead.telegram_id}"

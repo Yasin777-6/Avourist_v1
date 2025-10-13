@@ -24,6 +24,7 @@ def calculate_win_probability(case_type: str, case_description: str) -> int:
 
 
 def load_pricing_data() -> Dict:
+    """Load pricing data with court instance support"""
     return {
         "REGIONS": {
             "WITHOUT_POA": {"1": 15000, "2": 35000, "3": 53000, "4": 70000},
@@ -36,11 +37,53 @@ def load_pricing_data() -> Dict:
     }
 
 
+def get_document_preparation_deadline(instance: str, is_urgent: bool = False) -> str:
+    """
+    Get document preparation deadline based on court instance
+    
+    Args:
+        instance: Court instance ("1", "2", "3", "4")
+        is_urgent: Whether case is urgent (court in < 3 days)
+    
+    Returns:
+        Deadline description string
+    """
+    if is_urgent:
+        return "1-2 рабочих дня (срочное дело)"
+    
+    deadlines = {
+        "1": "7-10 рабочих дней",  # First instance
+        "2": "10-12 рабочих дней",  # Appeal
+        "3": "15 рабочих дней",     # Cassation
+        "4": "15 рабочих дней",     # Supreme Court / Prosecutor
+    }
+    
+    return deadlines.get(instance, "7-10 рабочих дней")
+
+
+def get_price_by_instance(region: str, representation_type: str, instance: str) -> int:
+    """
+    Get price for specific instance
+    
+    Args:
+        region: "MOSCOW" or "REGIONS"
+        representation_type: "WITH_POA" or "WITHOUT_POA"
+        instance: "1", "2", "3", "4"
+    
+    Returns:
+        Price in rubles
+    """
+    pricing = load_pricing_data()
+    return pricing.get(region, pricing["REGIONS"])[representation_type][instance]
+
+
 def format_pricing_for_prompt(pricing: Dict) -> str:
+    """Format pricing data for AI prompt"""
     formatted = []
     for representation, instances in pricing.items():
         rep_name = "Без доверенности" if representation == "WITHOUT_POA" else "По доверенности"
         formatted.append(f"\n{rep_name}:")
         for instance, cost in instances.items():
-            formatted.append(f"  {instance} инстанция: {cost:,} руб")
+            deadline = get_document_preparation_deadline(instance)
+            formatted.append(f"  {instance} инстанция: {cost:,} руб (срок подготовки: {deadline})")
     return "".join(formatted)
