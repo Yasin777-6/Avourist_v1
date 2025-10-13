@@ -86,10 +86,9 @@ class AgentOrchestrator:
             logger.info("Staying in intake for document collection and consultation")
             return 'intake'
         
-        # If lead has pricing and is HOT, suggest contract
-        if lead.status == 'HOT' and lead.estimated_cost:
-            logger.info("Lead is HOT with pricing - routing to contract")
-            return 'contract'
+        # Only route to contract if client EXPLICITLY wants contract
+        # Don't route just because lead is HOT - that's too early!
+        # Client must first see value (analysis, petition, pricing)
         
         # Default: Intake agent for case analysis
         logger.info("No specific intent detected - routing to intake agent")
