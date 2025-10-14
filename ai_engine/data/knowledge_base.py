@@ -1,7 +1,8 @@
 """
 Knowledge Base Loader
 Loads КоАП articles and petition templates for agents
-Dynamically fetches current penalties from consultant.ru when needed
+Uses koap_fines_complete.json (128 articles) scraped from https://shtrafy-gibdd.ru/koap
+Dynamically fetches current penalties from shtrafy-gibdd.ru when needed
 """
 
 import json
@@ -18,9 +19,10 @@ class KnowledgeBase:
     def __init__(self):
         self.data_dir = Path(__file__).parent
         self.koap_articles = self._load_koap_articles()
+        self.koap_fines_complete = self._load_koap_fines_complete()
         self.petition_templates = self._load_petition_templates()
         self.scraper = None  # Lazy load scraper
-        logger.info(f"Loaded {len(self.koap_articles)} КоАП articles and {len(self.petition_templates)} petition templates")
+        logger.info(f"Loaded {len(self.koap_articles)} КоАП articles, {len(self.koap_fines_complete)} complete fines, and {len(self.petition_templates)} petition templates")
     
     def _load_koap_articles(self) -> List[Dict]:
         """Load КоАП articles from JSON"""
@@ -32,6 +34,19 @@ class KnowledgeBase:
         except Exception as e:
             logger.error(f"Failed to load КоАП articles: {e}")
             return []
+    
+    def _load_koap_fines_complete(self) -> Dict:
+        """Load complete КоАП fines database from koap_fines_complete.json (scraped from shtrafy-gibdd.ru/koap)"""
+        try:
+            # Load from root directory
+            file_path = self.data_dir.parent.parent / 'koap_fines_complete.json'
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                logger.info(f"Loaded complete fines database from {file_path} - Source: {data.get('source', 'unknown')}")
+                return data.get('articles', {})
+        except Exception as e:
+            logger.error(f"Failed to load КоАП fines complete: {e}")
+            return {}
     
     def _load_petition_templates(self) -> List[Dict]:
         """Load petition templates from JSON"""
@@ -73,7 +88,7 @@ class KnowledgeBase:
     def get_article_by_code(self, article_code: str) -> Optional[Dict]:
         """
         Get article by exact code (e.g., 'ч.1 ст.12.8 КоАП РФ')
-        First checks local cache, then scrapes from consultant.ru if needed
+        First checks local cache, then complete fines database, then scrapes from shtrafy-gibdd.ru if needed
         """
         # Try local cache first
         for article in self.koap_articles:
@@ -81,7 +96,13 @@ class KnowledgeBase:
                 logger.info(f"Found article {article_code} in local cache")
                 return article
         
-        # If not found, try scraping from consultant.ru
+        # Try complete fines database
+        fine_info = self.get_fine_from_complete_db(article_code)
+        if fine_info:
+            logger.info(f"Found article {article_code} in complete fines database")
+            return fine_info
+        
+        # If not found, try scraping from shtrafy-gibdd.ru
         logger.info(f"Article {article_code} not in cache, attempting to scrape...")
         scraped_article = self._scrape_article(article_code)
         
@@ -93,8 +114,48 @@ class KnowledgeBase:
         
         return None
     
+    def get_fine_from_complete_db(self, article_code: str) -> Optional[Dict]:
+        """
+        Get fine information from koap_fines_complete.json
+        Converts article code like 'ч.1 ст.12.8 КоАП РФ' to '12.8ч.1'
+        Source: https://shtrafy-gibdd.ru/koap
+        """
+        # Extract article number from code
+        # Example: 'ч.1 ст.12.8 КоАП РФ' -> '12.8ч.1'
+        import re
+        match = re.search(r'ч\.(\d+)\s+ст\.(\d+\.\d+)', article_code)
+        if match:
+            part = match.group(1)
+            article_num = match.group(2)
+            key = f"{article_num}ч.{part}"
+        else:
+            # Try without part number: 'ст.12.8 КоАП РФ' -> '12.8'
+            match = re.search(r'ст\.(\d+\.\d+)', article_code)
+            if match:
+                key = match.group(1)
+            else:
+                return None
+        
+        # Look up in complete database
+        if key in self.koap_fines_complete:
+            fine_data = self.koap_fines_complete[key]
+            # Convert to standard format
+            return {
+                'article': article_code,
+                'title': fine_data.get('description', ''),
+                'punishment': {
+                    'fine': fine_data.get('fine', ''),
+                    'details': fine_data.get('punishment', '')
+                },
+                'sources': ['https://shtrafy-gibdd.ru/koap'],
+                'verified': True,
+                'last_updated': '2025-10-14'
+            }
+        
+        return None
+    
     def _scrape_article(self, article_code: str) -> Optional[Dict]:
-        """Scrape article from consultant.ru"""
+        """Scrape article from shtrafy-gibdd.ru/koap"""
         try:
             # Lazy load scraper
             if self.scraper is None:

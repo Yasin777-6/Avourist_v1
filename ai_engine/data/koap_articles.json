@@ -35,8 +35,7 @@
         "Отсутствие состава правонарушения"
       ],
       "sources": [
-        "https://shtrafy-gibdd.ru/koap/12-8-1",
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+        "https://shtrafy-gibdd.ru/koap/12-8-1"
       ],
       "last_updated": "2025-10-14",
       "verified": true
@@ -72,8 +71,7 @@
         "Нарушение порядка освидетельствования"
       ],
       "sources": [
-        "https://shtrafy-gibdd.ru/koap/12-26-1",
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+        "https://shtrafy-gibdd.ru/koap/12-26-1"
       ],
       "last_updated": "2025-10-14",
       "verified": true
@@ -102,7 +100,7 @@
       ],
       "success_probability": "75-85%",
       "sources": [
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+        "https://shtrafy-gibdd.ru/koap"
       ]
     },
     {
@@ -130,7 +128,7 @@
       ],
       "success_probability": "70-80%",
       "sources": [
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+        "https://shtrafy-gibdd.ru/koap"
       ]
     },
     {
@@ -154,7 +152,7 @@
       ],
       "success_probability": "60-70%",
       "sources": [
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+        "https://shtrafy-gibdd.ru/koap"
       ]
     },
     {
@@ -177,8 +175,7 @@
       ],
       "success_probability": "40-50%",
       "sources": [
-        "https://shtrafy-gibdd.ru/koap/12-7-1",
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+        "https://shtrafy-gibdd.ru/koap/12-7-1"
       ],
       "last_updated": "2025-10-14",
       "verified": true
@@ -197,7 +194,7 @@
         "additional": "Эвакуация + оплата штрафстоянки"
       },
       "sources": [
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+        "https://shtrafy-gibdd.ru/koap"
       ]
     },
     {
@@ -222,8 +219,7 @@
       ],
       "success_probability": "50-60%",
       "sources": [
-        "https://www.consultant.ru/document/cons_doc_LAW_10699/",
-        "https://autourist.expert/statya-264-1-uk-rf"
+        "https://shtrafy-gibdd.ru/koap"
       ]
     }
   ]

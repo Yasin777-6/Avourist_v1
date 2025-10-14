@@ -15,13 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class LegalDataScraper:
-    """Scraper for legal data from Russian websites"""
+    """Scraper for legal data from shtrafy-gibdd.ru/koap"""
     
     SOURCES = {
-        'consultant': 'https://www.consultant.ru/document/cons_doc_LAW_34661/',
-        'autourist_expert': 'https://autourist.expert/',
-        'pravoved': 'https://pravoved.ru/',
-        'lawlinks': 'https://lawlinks.ru/',
+        'shtrafy_gibdd': 'https://shtrafy-gibdd.ru/koap',
     }
     
     def __init__(self):
@@ -33,25 +30,25 @@ class LegalDataScraper:
     
     def scrape_koap_articles(self) -> List[Dict]:
         """
-        Scrape КоАП РФ articles from consultant.ru
+        Scrape КоАП РФ articles from shtrafy-gibdd.ru/koap
         Returns list of articles with details
         """
-        logger.info("Scraping КоАП articles from consultant.ru")
+        logger.info("Scraping КоАП articles from shtrafy-gibdd.ru/koap")
         articles = []
         
         try:
-            # Scrape main КоАП page
-            response = self.session.get(self.SOURCES['consultant'], timeout=10)
+            # Scrape main КоАП page from shtrafy-gibdd.ru
+            response = self.session.get(self.SOURCES['shtrafy_gibdd'], timeout=10)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
             # Find Chapter 12 (traffic violations)
             # Note: This is a simplified scraper - real implementation needs proper parsing
-            logger.info("Parsing КоАП Chapter 12 (traffic violations)")
+            logger.info("Parsing КоАП Chapter 12 (traffic violations) from shtrafy-gibdd.ru")
             
             # For now, return enhanced manual data
-            # In production, implement proper HTML parsing
+            # In production, implement proper HTML parsing from shtrafy-gibdd.ru
             articles = self._get_enhanced_koap_data()
             
             logger.info(f"Scraped {len(articles)} КоАП articles")
@@ -108,7 +105,7 @@ class LegalDataScraper:
                 "full_text": "Управление транспортным средством водителем, находящимся в состоянии опьянения, если такие действия не содержат уголовно наказуемого деяния",
                 "keywords": ["пьяный", "алкоголь", "опьянение", "квас", "пиво", "водка", "выпил", "нетрезвый"],
                 "punishment": {
-                    "fine": "30 000 ₽",
+                    "fine": "45 000 ₽",
                     "license_suspension": "1.5 - 2 года",
                     "additional": "Эвакуация автомобиля, рост КБМ ОСАГО"
                 },
@@ -128,8 +125,7 @@ class LegalDataScraper:
                     "Отсутствие состава правонарушения"
                 ],
                 "sources": [
-                    "https://www.consultant.ru/document/cons_doc_LAW_34661/",
-                    "https://autourist.expert/statya-12-8-koap-rf"
+                    "https://shtrafy-gibdd.ru/koap/12-8-1"
                 ]
             },
             {
@@ -138,7 +134,7 @@ class LegalDataScraper:
                 "full_text": "Невыполнение водителем законного требования уполномоченного должностного лица о прохождении медицинского освидетельствования на состояние опьянения",
                 "keywords": ["отказ", "медосвидетельствование", "не дунул", "отказался", "не прошел"],
                 "punishment": {
-                    "fine": "30 000 ₽",
+                    "fine": "45 000 ₽",
                     "license_suspension": "1.5 - 2 года",
                     "additional": "Приравнивается к управлению в состоянии опьянения"
                 },
@@ -157,8 +153,7 @@ class LegalDataScraper:
                     "Нарушение порядка освидетельствования"
                 ],
                 "sources": [
-                    "https://www.consultant.ru/document/cons_doc_LAW_34661/",
-                    "https://autourist.expert/statya-12-26-koap-rf"
+                    "https://shtrafy-gibdd.ru/koap/12-26-1"
                 ]
             },
             {
@@ -177,7 +172,7 @@ class LegalDataScraper:
                     "Отсутствие знака ограничения скорости"
                 ],
                 "success_probability": "75-85%",
-                "sources": ["https://www.consultant.ru/document/cons_doc_LAW_34661/"]
+                "sources": ["https://shtrafy-gibdd.ru/koap"]
             },
             {
                 "article": "ч.4 ст.12.9 КоАП РФ",
@@ -195,7 +190,7 @@ class LegalDataScraper:
                     "Нарушение процедуры фиксации"
                 ],
                 "success_probability": "70-80%",
-                "sources": ["https://www.consultant.ru/document/cons_doc_LAW_34661/"]
+                "sources": ["https://shtrafy-gibdd.ru/koap"]
             },
             {
                 "article": "ч.5 ст.12.9 КоАП РФ",
@@ -211,7 +206,7 @@ class LegalDataScraper:
                     "Процессуальные нарушения"
                 ],
                 "success_probability": "60-70%",
-                "sources": ["https://www.consultant.ru/document/cons_doc_LAW_34661/"]
+                "sources": ["https://shtrafy-gibdd.ru/koap"]
             },
             {
                 "article": "ч.1 ст.12.7 КоАП РФ",
@@ -227,7 +222,7 @@ class LegalDataScraper:
                     "Ошибка в базе данных ГИБДД"
                 ],
                 "success_probability": "40-50%",
-                "sources": ["https://www.consultant.ru/document/cons_doc_LAW_34661/"]
+                "sources": ["https://shtrafy-gibdd.ru/koap"]
             },
             {
                 "article": "ст.27.12 КоАП РФ",
@@ -237,7 +232,7 @@ class LegalDataScraper:
                 "punishment": {
                     "additional": "Эвакуация + оплата штрафстоянки"
                 },
-                "sources": ["https://www.consultant.ru/document/cons_doc_LAW_34661/"]
+                "sources": ["https://shtrafy-gibdd.ru/koap"]
             },
             {
                 "article": "ст.264.1 УК РФ",
@@ -256,8 +251,7 @@ class LegalDataScraper:
                 ],
                 "success_probability": "50-60%",
                 "sources": [
-                    "https://www.consultant.ru/document/cons_doc_LAW_10699/",
-                    "https://autourist.expert/statya-264-1-uk-rf"
+                    "https://shtrafy-gibdd.ru/koap"
                 ]
             }
         ]

@@ -113,14 +113,14 @@ class TestIntakeAgent:
         context = {'suggested_article': {
             'article': 'ч.1 ст.12.8 КоАП РФ',
             'title': 'Управление в состоянии опьянения',
-            'punishment': {'fine': '30 000 ₽', 'license_suspension': '1.5 - 2 года'}
+            'punishment': {'fine': '45 000 ₽', 'license_suspension': '1.5 - 2 года'}
         }}
         
         prompt = agent.get_system_prompt(test_lead, context)
         
         assert 'Подсказка из базы знаний' in prompt
         assert 'ч.1 ст.12.8 КоАП РФ' in prompt
-        assert '30 000 ₽' in prompt
+        assert '45 000 ₽' in prompt
 
 
 class TestPricingAgent:

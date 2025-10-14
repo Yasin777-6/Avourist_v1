@@ -1,6 +1,6 @@
 """
 КоАП РФ Web Scraper
-Dynamically fetches current penalties from consultant.ru
+Dynamically fetches current penalties from shtrafy-gibdd.ru/koap
 """
 import logging
 import requests
