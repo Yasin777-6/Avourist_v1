@@ -10,6 +10,7 @@ from leads.models import Lead, Conversation
 from .deepseek import DeepSeekAPIService
 from ai_engine.services.memory import ConversationMemoryService
 from ai_engine.services.contracts_flow import ContractFlow
+from ai_engine.services import analytics
 
 # Multi-agent imports
 from ..agents.orchestrator import AgentOrchestrator
