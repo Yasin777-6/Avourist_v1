@@ -8,9 +8,8 @@ from django.conf import settings
 from leads.models import Lead, Conversation
 
 from .deepseek import DeepSeekAPIService
-from ai_engine.services.memory import ConversationMemory
+from ai_engine.services.memory import ConversationMemoryService
 from ai_engine.services.contracts_flow import ContractFlow
-from ai_engine.services.koap_scraper import get_koap_scraper
 
 # Multi-agent imports
 from ..agents.orchestrator import AgentOrchestrator
