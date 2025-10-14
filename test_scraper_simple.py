@@ -4,6 +4,7 @@ Simple test for КоАП scraper (no Django dependencies)
 import requests
 from bs4 import BeautifulSoup
 import re
+f
 
 
 def test_scrape_article(article_num="12.8"):
