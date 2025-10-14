@@ -51,22 +51,39 @@ class AgentOrchestrator:
             logger.info("Detected verification code - routing to contract agent")
             return 'contract'
         
-        # Priority 2: Explicit contract request
+        # Priority 2: Check conversation history for contract flow context
+        # If last AI message asked for contract data, stay in contract flow
+        conversation_history = context.get('conversation_history', [])
+        if conversation_history:
+            last_ai_message = conversation_history[-1].get('assistant', '').lower() if conversation_history else ''
+            
+            # Check if AI recently asked for contract data
+            contract_data_keywords = [
+                'для договора нужны', 'паспортные данные', 'фио полностью',
+                'серия и номер паспорта', 'договор готовлю', 'данные для договора'
+            ]
+            if any(keyword in last_ai_message for keyword in contract_data_keywords):
+                # User is responding with contract data - stay in contract flow
+                if not self._matches_keywords(message_lower, self.INTENT_KEYWORDS['petition']):
+                    logger.info("Continuing contract flow - user providing data")
+                    return 'contract'
+        
+        # Priority 3: Explicit contract request
         if self._matches_keywords(message_lower, self.INTENT_KEYWORDS['contract']):
             logger.info("Detected contract intent via keywords")
             return 'contract'
         
-        # Priority 3: Petition request
+        # Priority 4: Petition request
         if self._matches_keywords(message_lower, self.INTENT_KEYWORDS['petition']):
             logger.info("Detected petition intent via keywords")
             return 'petition'
         
-        # Priority 4: Pricing query
+        # Priority 5: Pricing query
         if self._matches_keywords(message_lower, self.INTENT_KEYWORDS['pricing']):
             logger.info("Detected pricing intent via keywords")
             return 'pricing'
         
-        # Priority 5: Check conversation stage
+        # Priority 6: Check conversation stage
         # Stay in intake for document collection and consultation
         # Only move to pricing when client explicitly asks or after value is shown
         if lead.case_type and not lead.estimated_cost:
