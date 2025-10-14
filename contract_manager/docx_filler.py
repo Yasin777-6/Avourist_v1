@@ -127,31 +127,42 @@ class DOCXFiller:
         if total_amount:
             amount_digits = f"{int(total_amount):,}".replace(",", " ")
             amount_words = self._amount_to_words(int(total_amount))
+            # Standard placeholders
             replacements["_________(______________) рублей"] = f"{amount_digits} ({amount_words}) рублей"
             replacements["_________(______________)  рублей"] = f"{amount_digits} ({amount_words}) рублей"
             replacements["25 000 (двадцать пять тысяч) рублей"] = f"{amount_digits} ({amount_words}) рублей"
+            # Section 5.1 specific placeholder
+            replacements["________ (________ тысяч) рублей"] = f"{amount_digits} ({amount_words}) рублей"
         
         prepayment = data.get('prepayment')
         if prepayment:
             prep_digits = f"{int(prepayment):,}".replace(",", " ")
             prep_words = self._amount_to_words(int(prepayment))
+            # Standard placeholders
             replacements["____________ (_________ тысяч)рублей"] = f"{prep_digits} ({prep_words}) рублей"
             replacements["____________ (_________ тысяч) рублей"] = f"{prep_digits} ({prep_words}) рублей"
             replacements["15 000 (пятнадцать тысяч) рублей"] = f"{prep_digits} ({prep_words}) рублей"
+            # Section 5.1 specific placeholder (prepayment line)
+            replacements["_______ (______ тысяч) рублей"] = f"{prep_digits} ({prep_words}) рублей"
         
         success_fee = data.get('success_fee')
         if success_fee:
             fee_digits = f"{int(success_fee):,}".replace(",", " ")
             fee_words = self._amount_to_words(int(success_fee))
+            # Standard placeholders
             replacements["__________________ (___________ тысяч) рублей"] = f"{fee_digits} ({fee_words}) рублей"
             replacements["__________________(___________ тысяч) рублей"] = f"{fee_digits} ({fee_words}) рублей"
             replacements["10 000 (десять тысяч) рублей"] = f"{fee_digits} ({fee_words}) рублей"
+            # Section 5.1 specific placeholder (success fee line)
+            replacements["______ (_______ тысяч) рублей"] = f"{fee_digits} ({fee_words}) рублей"
         
         docs_fee = data.get('docs_prep_fee')
         if docs_fee:
             docs_digits = f"{int(docs_fee):,}".replace(",", " ")
             docs_words = self._amount_to_words(int(docs_fee))
             replacements["______(___________ тысяч) рублей"] = f"{docs_digits} ({docs_words}) рублей"
+            # Section 5.1.1 specific format (already correct in template: "5 000 (5000)")
+            replacements["5 000 (5000) рублей"] = f"{docs_digits} ({docs_words}) рублей"
         
         # Client details section
         birth_date = data.get('birth_date', '')

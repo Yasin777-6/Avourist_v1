@@ -324,16 +324,24 @@ class ContractGenerationService:
         return f"AV-{date_str}-{unique_id}"
     
     def _calculate_base_cost(self, region: str, instance: str, representation_type: str) -> Decimal:
-        """Calculate base cost based on pricing structure from payments.md"""
+        """
+        Calculate base cost based on pricing structure from pricing.md
+        
+        Pricing structure:
+        - REGIONS WITHOUT_POA: 20k (min 15k), 40k (min 35k), 60k (min 53k), 80k (min 70k)
+        - REGIONS WITH_POA: 30k (min 25k), 50k (min 45k), 70k (min 63k), 90k (min 80k)
+        - MOSCOW WITHOUT_POA: 30k, 60-80k, 90-120k, 120-160k
+        - MOSCOW WITH_POA: 40k, 100k, 140k, -
+        """
         
         pricing = {
             'REGIONS': {
-                'WITHOUT_POA': {'1': 15000, '2': 35000, '3': 53000, '4': 70000},
-                'WITH_POA': {'1': 25000, '2': 45000, '3': 63000, '4': 80000}
+                'WITHOUT_POA': {'1': 20000, '2': 40000, '3': 60000, '4': 80000},
+                'WITH_POA': {'1': 30000, '2': 50000, '3': 70000, '4': 90000}
             },
             'MOSCOW': {
-                'WITHOUT_POA': {'1': 30000, '2': 60000, '3': 90000, '4': 120000},
-                'WITH_POA': {'1': 40000, '2': 80000, '3': 120000, '4': 150000}
+                'WITHOUT_POA': {'1': 30000, '2': 70000, '3': 105000, '4': 140000},
+                'WITH_POA': {'1': 40000, '2': 100000, '3': 140000, '4': 140000}
             }
         }
         
