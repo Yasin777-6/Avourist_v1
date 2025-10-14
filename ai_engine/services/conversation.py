@@ -3,21 +3,18 @@ import os
 from decimal import Decimal
 from typing import Dict, List
 
-from django.utils import timezone
 from django.conf import settings
 
 from leads.models import Lead, Conversation
 
 from .deepseek import DeepSeekAPIService
-from .memory import ConversationMemoryService
-from .contracts_flow import ContractFlow
-from . import analytics
-from . import prompts
+from ai_engine.services.memory import ConversationMemory
+from ai_engine.services.contracts_flow import ContractFlow
+from ai_engine.services.koap_scraper import get_koap_scraper
 
 # Multi-agent imports
 from ..agents.orchestrator import AgentOrchestrator
 from ..agents import AGENT_REGISTRY
-
 logger = logging.getLogger(__name__)
 
 
@@ -67,6 +64,18 @@ class AIConversationService:
             self.memory.add_message(lead.telegram_id, message, processed_response)
             lead.last_interaction = timezone.now()
             lead.save()
+            
+            # Schedule follow-up message after 1 hour if lead doesn't respond
+            try:
+                from contract_manager.tasks import send_follow_up_message_task
+                # Schedule task to run in 1 hour (3600 seconds)
+                send_follow_up_message_task.apply_async(
+                    args=[lead.telegram_id, lead.id],
+                    countdown=3600  # 1 hour
+                )
+                logger.info(f"Scheduled follow-up for lead {lead.id} in 1 hour")
+            except Exception as e:
+                logger.warning(f"Could not schedule follow-up task: {e}")
 
             return processed_response
         except Exception as e:

@@ -15,7 +15,7 @@
         "нетрезвый"
       ],
       "punishment": {
-        "fine": "30 000 ₽",
+        "fine": "45 000 ₽",
         "license_suspension": "1.5 - 2 года",
         "additional": "Эвакуация автомобиля, рост КБМ ОСАГО"
       },
@@ -35,9 +35,11 @@
         "Отсутствие состава правонарушения"
       ],
       "sources": [
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/",
-        "https://autourist.expert/statya-12-8-koap-rf"
-      ]
+        "https://shtrafy-gibdd.ru/koap/12-8-1",
+        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+      ],
+      "last_updated": "2025-10-14",
+      "verified": true
     },
     {
       "article": "ч.1 ст.12.26 КоАП РФ",
@@ -51,7 +53,7 @@
         "не прошел"
       ],
       "punishment": {
-        "fine": "30 000 ₽",
+        "fine": "45 000 ₽",
         "license_suspension": "1.5 - 2 года",
         "additional": "Приравнивается к управлению в состоянии опьянения"
       },
@@ -70,9 +72,11 @@
         "Нарушение порядка освидетельствования"
       ],
       "sources": [
-        "https://www.consultant.ru/document/cons_doc_LAW_34661/",
-        "https://autourist.expert/statya-12-26-koap-rf"
-      ]
+        "https://shtrafy-gibdd.ru/koap/12-26-1",
+        "https://www.consultant.ru/document/cons_doc_LAW_34661/"
+      ],
+      "last_updated": "2025-10-14",
+      "verified": true
     },
     {
       "article": "ч.3 ст.12.9 КоАП РФ",
@@ -173,8 +177,11 @@
       ],
       "success_probability": "40-50%",
       "sources": [
+        "https://shtrafy-gibdd.ru/koap/12-7-1",
         "https://www.consultant.ru/document/cons_doc_LAW_34661/"
-      ]
+      ],
+      "last_updated": "2025-10-14",
+      "verified": true
     },
     {
       "article": "ст.27.12 КоАП РФ",

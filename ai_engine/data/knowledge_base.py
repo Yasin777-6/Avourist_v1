@@ -1,6 +1,7 @@
 """
 Knowledge Base Loader
 Loads КоАП articles and petition templates for agents
+Dynamically fetches current penalties from consultant.ru when needed
 """
 
 import json
@@ -18,6 +19,7 @@ class KnowledgeBase:
         self.data_dir = Path(__file__).parent
         self.koap_articles = self._load_koap_articles()
         self.petition_templates = self._load_petition_templates()
+        self.scraper = None  # Lazy load scraper
         logger.info(f"Loaded {len(self.koap_articles)} КоАП articles and {len(self.petition_templates)} petition templates")
     
     def _load_koap_articles(self) -> List[Dict]:
@@ -69,11 +71,40 @@ class KnowledgeBase:
         return best_match
     
     def get_article_by_code(self, article_code: str) -> Optional[Dict]:
-        """Get article by exact code (e.g., 'ч.1 ст.12.8 КоАП РФ')"""
+        """
+        Get article by exact code (e.g., 'ч.1 ст.12.8 КоАП РФ')
+        First checks local cache, then scrapes from consultant.ru if needed
+        """
+        # Try local cache first
         for article in self.koap_articles:
             if article['article'] == article_code:
+                logger.info(f"Found article {article_code} in local cache")
                 return article
+        
+        # If not found, try scraping from consultant.ru
+        logger.info(f"Article {article_code} not in cache, attempting to scrape...")
+        scraped_article = self._scrape_article(article_code)
+        
+        if scraped_article:
+            # Add to cache for future use
+            self.koap_articles.append(scraped_article)
+            logger.info(f"Successfully scraped and cached article {article_code}")
+            return scraped_article
+        
         return None
+    
+    def _scrape_article(self, article_code: str) -> Optional[Dict]:
+        """Scrape article from consultant.ru"""
+        try:
+            # Lazy load scraper
+            if self.scraper is None:
+                from ai_engine.services.koap_scraper import get_koap_scraper
+                self.scraper = get_koap_scraper()
+            
+            return self.scraper.get_article_info(article_code)
+        except Exception as e:
+            logger.error(f"Failed to scrape article {article_code}: {e}")
+            return None
     
     def get_petition_template(self, petition_type: str) -> Optional[Dict]:
         """Get petition template by type"""
