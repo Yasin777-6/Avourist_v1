@@ -106,8 +106,9 @@ class AIConversationService:
                     # Import document generator
                     from ai_engine.services.document_generator import DocumentGenerator
                     doc_gen = DocumentGenerator()
-                    # Generate petition and send it
-                    return doc_gen.generate_and_send_petition(lead, params)
+                    # Generate petition and send it (don't return - let AI response continue)
+                    doc_gen.generate_and_send_petition(lead, params)
+                    # Don't return - let the response continue with recommendations
                 elif command == "SEND_WON_CASE_IMAGES":
                     logger.info(f"Sending won case images for article {params}")
                     # Send won case images
