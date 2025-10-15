@@ -155,9 +155,8 @@ class WonCasesScraper:
                 img_alt = img_tag.get('alt', '')
                 
                 if img_src and 'delo' in img_src:
-                    # Convert thumbnail to full image URL
-                    full_img_url = img_src.replace('/thumbnails', '').replace('-fill-200x300', '')
-                    full_img_url = urljoin('https://avtourist.info', full_img_url)
+                    # Use the thumbnail URL directly (full images don't exist)
+                    full_img_url = urljoin('https://avtourist.info', img_src)
                     
                     # Extract article from filename (e.g., "ст.12.8.1 дело..." or "12.8.1-spb...")
                     article = self._extract_article(img_alt)
