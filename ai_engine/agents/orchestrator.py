@@ -59,22 +59,32 @@ class AgentOrchestrator:
             logger.info("Detected verification code - routing to contract agent")
             return 'contract'
         
-        # Priority 2: Check conversation history for contract flow context
-        # If last AI message asked for contract data, stay in contract flow
+        # Priority 2: Check conversation history for context
         conversation_history = context.get('conversation_history', [])
         if conversation_history:
             last_ai_message = conversation_history[-1].get('assistant', '').lower() if conversation_history else ''
             
-            # Check if AI recently asked for contract data
+            # Check if AI recently asked for PETITION data (ФИО, адрес, город for ходатайство)
+            petition_data_keywords = [
+                'для ходатайства нужно', 'для подготовки ходатайства', 
+                'напишите эти данные', 'фио полностью', 'адрес регистрации', 'город (где было нарушение)',
+                'подготовлю ходатайство', 'бесплатно подготовлю'
+            ]
+            if any(keyword in last_ai_message for keyword in petition_data_keywords):
+                # User is responding with petition data - route to petition agent
+                logger.info("Continuing petition flow - user providing data for ходатайство")
+                return 'petition'
+            
+            # Check if AI recently asked for CONTRACT data (паспорт, дата рождения, инстанция)
             contract_data_keywords = [
-                'для договора нужны', 'паспортные данные', 'фио полностью',
-                'серия и номер паспорта', 'договор готовлю', 'данные для договора'
+                'для договора нужны', 'паспортные данные', 'дата рождения',
+                'серия и номер паспорта', 'договор готовлю', 'данные для договора',
+                'инстанция суда', 'личное присутствие в суде'
             ]
             if any(keyword in last_ai_message for keyword in contract_data_keywords):
                 # User is responding with contract data - stay in contract flow
-                if not self._matches_keywords(message_lower, self.INTENT_KEYWORDS['petition']):
-                    logger.info("Continuing contract flow - user providing data")
-                    return 'contract'
+                logger.info("Continuing contract flow - user providing data")
+                return 'contract'
         
         # Priority 3: Explicit contract request
         if self._matches_keywords(message_lower, self.INTENT_KEYWORDS['contract']):
