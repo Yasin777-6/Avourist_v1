@@ -64,12 +64,12 @@ def send_won_case_images(telegram_id: int, article: str):
                                 logger.error(f"Failed to download image: {img_response.status_code}")
                                 continue
                             
-                            # Send as photo (high quality 708x1002px)
-                            url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
-                            caption = f"📄 {case.get('title', 'Выигранное дело')}"
+                            # Send as document for better quality and zoom
+                            url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+                            caption = f"📄 {case.get('title', 'Выигранное дело')}\n\n💡 Нажмите на файл для просмотра в полном размере"
                             
                             files = {
-                                'photo': (img_data.get('filename', 'document.jpg'), img_response.content, 'image/jpeg')
+                                'document': (img_data.get('filename', 'document.jpg'), img_response.content, 'image/jpeg')
                             }
                             data = {
                                 'chat_id': telegram_id,
