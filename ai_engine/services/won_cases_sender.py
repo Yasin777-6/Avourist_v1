@@ -16,9 +16,17 @@ def send_won_case_images(telegram_id: int, article: str):
     
     Args:
         telegram_id: Telegram user ID
-        article: Article number (e.g., "12.8" for DUI)
+        article: Article number (e.g., "12.8" for DUI or "Статья: 12.8 КоАП")
     """
     try:
+        # Extract just the article number (e.g., "12.8" from "Статья: 12.8 КоАП")
+        import re
+        article_match = re.search(r'(\d+\.\d+)', article)
+        if article_match:
+            article = article_match.group(1)
+        
+        logger.info(f"Looking for won cases with article: {article}")
+        
         # Get won cases for this article
         won_cases = get_won_cases_by_article(article)
         
