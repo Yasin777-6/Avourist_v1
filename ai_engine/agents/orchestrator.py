@@ -24,7 +24,15 @@ class AgentOrchestrator:
         ],
         'petition': [
             'ходатайство', 'заявление', 'прошение', 'вернуть права',
-            'перенести суд', 'отложить', 'экспертиза'
+            'перенести суд', 'отложить', 'экспертиза', 'ознакомлен',
+            'материалы дела', 'привлечен', 'защитник', 'представител',
+            'свидетел', 'перенос', 'суд завтра', 'суд послезавтра',
+            'подготов', 'хочу ходатайство', 'нужно ходатайство'
+        ],
+        'case_analysis': [
+            'шансы', 'вероятность', 'процент', 'выигранные дела', 'примеры',
+            'оцени', 'оценка', 'анализ', 'какие шансы', 'смогу ли',
+            'получится ли', 'выиграю ли', 'успех'
         ],
         'pricing': [
             'сколько стоит', 'цена', 'тариф', 'стоимость', 'прайс',
@@ -73,12 +81,17 @@ class AgentOrchestrator:
             logger.info("Detected contract intent via keywords")
             return 'contract'
         
-        # Priority 4: Petition request
+        # Priority 4: Case analysis request (win probability, examples)
+        if self._matches_keywords(message_lower, self.INTENT_KEYWORDS['case_analysis']):
+            logger.info("Detected case analysis intent via keywords")
+            return 'case_analysis'
+        
+        # Priority 5: Petition request
         if self._matches_keywords(message_lower, self.INTENT_KEYWORDS['petition']):
             logger.info("Detected petition intent via keywords")
             return 'petition'
         
-        # Priority 5: Pricing query
+        # Priority 6: Pricing query
         if self._matches_keywords(message_lower, self.INTENT_KEYWORDS['pricing']):
             logger.info("Detected pricing intent via keywords")
             return 'pricing'
@@ -134,5 +147,6 @@ class AgentOrchestrator:
             'pricing': 'PricingAgent',
             'contract': 'ContractAgent',
             'petition': 'PetitionAgent',
+            'case_analysis': 'CaseAnalysisAgent',
         }
         return agent_map.get(agent_type, 'IntakeAgent')

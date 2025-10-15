@@ -63,6 +63,7 @@ class AIConversationService:
             )
 
             self.memory.add_message(lead.telegram_id, message, processed_response)
+            self.memory.set_last_interaction(lead.telegram_id)  # Track in Redis for follow-up
             lead.last_interaction = timezone.now()
             lead.save()
             
@@ -107,6 +108,12 @@ class AIConversationService:
                     doc_gen = DocumentGenerator()
                     # Generate petition and send it
                     return doc_gen.generate_and_send_petition(lead, params)
+                elif command == "SEND_WON_CASE_IMAGES":
+                    logger.info(f"Sending won case images for article {params}")
+                    # Send won case images
+                    from ai_engine.services.won_cases_sender import send_won_case_images
+                    send_won_case_images(lead.telegram_id, params)
+                    # Don't return - let the response continue
                 elif command == "SEND_SMS_CODE":
                     return self.contract_flow.handle_sms_code(lead)
                 elif command == "VERIFY_SMS":

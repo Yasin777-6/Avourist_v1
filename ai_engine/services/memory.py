@@ -52,3 +52,32 @@ class ConversationMemoryService:
             self.redis_client.delete(key)
         except Exception as e:
             logger.error(f"Redis delete error: {str(e)}")
+    
+    def set_last_interaction(self, telegram_id: int):
+        """Set last interaction timestamp for follow-up tracking"""
+        key = f"last_interaction:{telegram_id}"
+        try:
+            self.redis_client.setex(key, 3600 * 2, datetime.now().isoformat())  # 2 hours TTL
+        except Exception as e:
+            logger.error(f"Redis set last_interaction error: {str(e)}")
+    
+    def get_last_interaction(self, telegram_id: int) -> datetime:
+        """Get last interaction timestamp"""
+        key = f"last_interaction:{telegram_id}"
+        try:
+            timestamp_str = self.redis_client.get(key)
+            if timestamp_str:
+                return datetime.fromisoformat(timestamp_str.decode('utf-8'))
+        except Exception as e:
+            logger.error(f"Redis get last_interaction error: {str(e)}")
+        return None
+    
+    def should_send_follow_up(self, telegram_id: int) -> bool:
+        """Check if follow-up message should be sent (1 hour of inactivity)"""
+        last_interaction = self.get_last_interaction(telegram_id)
+        if not last_interaction:
+            return False
+        
+        from datetime import timedelta
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        return last_interaction < one_hour_ago
