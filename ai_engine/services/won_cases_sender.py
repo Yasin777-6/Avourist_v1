@@ -46,6 +46,16 @@ def send_won_case_images(telegram_id: int, article: str):
                     img_url = img_data.get('url')
                     if img_url:
                         try:
+                            # URL-encode the image URL (handle Cyrillic characters)
+                            from urllib.parse import quote
+                            # Split URL into base and filename
+                            parts = img_url.rsplit('/', 1)
+                            if len(parts) == 2:
+                                base_url, filename = parts
+                                # Encode only the filename part
+                                encoded_filename = quote(filename)
+                                img_url = f"{base_url}/{encoded_filename}"
+                            
                             # Download image first
                             logger.info(f"Downloading image from {img_url}")
                             img_response = requests.get(img_url, timeout=30)
